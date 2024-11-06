@@ -1,0 +1,142 @@
+<!-- views/ticketList.ejs -->
+<%- include('partials/header', { title: 'Lista de Tickets' }) %>
+
+<div class="container">
+  <h2>Lista de Tickets</h2>
+  
+  <!-- Adicionar filtros -->
+  <div class="filters">
+    <input type="text" id="searchInput" placeholder="Buscar ticket..." aria-label="Buscar ticket">
+    <select id="statusFilter" aria-label="Filtrar por status">
+      <option value="">Todos os status</option>
+      <option value="andamento">Em andamento</option>
+      <option value="finalizado">Finalizado</option>
+    </select>
+    <select id="paymentFilter" aria-label="Filtrar por pagamento">
+      <option value="">Todos os pagamentos</option>
+      <option value="pendente">Pendente</option>
+      <option value="completo">Completo</option>
+    </select>
+  </div>
+
+  <table aria-label="Lista de Tickets">
+    <thead>
+      <tr>
+        <th scope="col">Ticket</th>
+        <th scope="col">Serviço</th>
+        <th scope="col">Início do Prazo</th>
+        <th scope="col">Fim do Prazo</th>
+        <th scope="col">Status</th>
+        <th scope="col">Pagamento</th>
+        <th scope="col">Comprovante</th>
+        <th scope="col">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% tickets.forEach(ticket => { %>
+        <tr>
+          <td data-label="Ticket"><%= ticket.ticket %></td>
+          <td data-label="Serviço"><%= ticket.service.name %></td>
+          <td data-label="Início do Prazo"><%= new Date(ticket.startDate).toLocaleDateString() %></td>
+          <td data-label="Fim do Prazo"><%= new Date(ticket.endDate).toLocaleDateString() %></td>
+          <td data-label="Status">
+            <span class="status-badge <%= ticket.status %>">
+              <%= ticket.status %>
+            </span>
+          </td>
+          <td data-label="Pagamento">
+            <span class="payment-badge <%= ticket.payment %>">
+              <%= ticket.payment %>
+            </span>
+          </td>
+          <td data-label="Comprovante">
+            <% if (ticket.proofUrl) { %>
+              <button type="button" 
+                      class="proof-button"
+                      data-proof-url="<%= ticket.proofUrl %>">
+                Ver Comprovante
+              </button>
+            <% } else { %>
+              <span>Sem comprovante</span>
+            <% } %>
+          </td>
+          <td data-label="Ações">
+            <button type="button"
+                    class="action-button"
+                    data-ticket-id="<%= ticket._id %>">
+              Ver / Editar
+            </button>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+
+  <!-- No results message -->
+  <div id="noResults" class="no-results" style="display: none;">
+    Nenhum ticket encontrado
+  </div>
+</div>
+
+<!-- Modais com melhor acessibilidade -->
+<div id="ticketModal" class="modal">
+  <div class="modal-content">
+    <span class="close" id="closeTicketModal">&times;</span>
+    <div id="ticketFormContent">
+      <form id="editTicketForm">
+        <input type="hidden" id="editTicketId" name="ticketId">
+        <div>
+          <label for="editTicket">Ticket:</label>
+          <input type="text" id="editTicket" name="ticket" <%= userRole === 'user' || userRole === 'financeiro' ? 'readonly' : '' %>>
+        </div>
+        <div>
+          <label for="editService">Serviço:</label>
+          <input type="text" id="editService" name="service" <%= userRole === 'user' || userRole === 'financeiro' ? 'readonly' : '' %>>
+        </div>
+        <div>
+          <label for="editClient">Cliente:</label>
+          <input type="text" id="editClient" name="client" <%= userRole === 'user' ? 'readonly' : '' %>>
+        </div>
+        <div>
+          <label for="editEmail">Email:</label>
+          <input type="email" id="editEmail" name="email" <%= userRole === 'user' ? 'readonly' : '' %>>
+        </div>
+        <div>
+          <label for="editStartDate">Início do Prazo:</label>
+          <input type="date" id="editStartDate" name="startDate" <%= userRole === 'user' ? 'readonly' : '' %>>
+        </div>
+        <div>
+          <label for="editEndDate">Fim do Prazo:</label>
+          <input type="date" id="editEndDate" name="endDate" readonly>
+        </div>
+        <div>
+          <label for="editStatus">Status:</label>
+          <select id="editStatus" name="status">
+            <option value="andamento">Andamento</option>
+            <option value="pendente">Pendente</option>
+            <option value="finalizado">Finalizado</option>
+          </select>
+        </div>
+        <div>
+          <label for="editPayment">Pagamento:</label>
+          <select id="editPayment" name="payment" <%= userRole === 'user' ? 'disabled' : '' %>>
+            <option value="pendente">Pendente</option>
+            <option value="completo">Completo</option>
+          </select>
+        </div>
+        <button type="submit">Salvar</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="proofModal" class="modal">
+  <div class="modal-content">
+    <span class="close" id="closeProofModal">&times;</span>
+    <div id="proofContent">Conteúdo do Modal de Comprovante</div>
+  </div>
+</div>
+
+<%- include('partials/footer') %>
+<script src="/js/scripts.js"></script>
+<script src="/js/tableFilter.js"></script>

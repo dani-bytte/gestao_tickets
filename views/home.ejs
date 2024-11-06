@@ -1,0 +1,10 @@
+<!-- views/home.ejs -->
+<%- include('partials/header', { title: 'Home' }) %>
+
+<div class="container">
+  <h2>Bem-vindo!</h2>
+  <p>Você está logado como usuário ID: <%= userId %></p>
+  <a href="/auth/logout"><button>Sair</button></a>
+</div>
+
+<%- include('partials/footer') %>

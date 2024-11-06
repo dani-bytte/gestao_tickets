@@ -1,0 +1,92 @@
+<!-- views/ticketForm.ejs -->
+<%- include('partials/header', { title: title || 'Cadastro de Ticket' }) %>
+
+<div class="container">
+  <h2>Cadastro de Ticket</h2>
+  
+  <% if (typeof errors !== 'undefined' && errors.length > 0) { %>
+    <div class="error-messages">
+      <% errors.forEach(error => { %>
+        <p class="error"><%= error.msg %></p>
+      <% }) %>
+    </div>
+  <% } %>
+
+  <% if (typeof error !== 'undefined' && error) { %>
+    <div class="error-container">
+      <p class="error-message"><%= error %></p>
+    </div>
+  <% } %>
+
+  <form action="/tickets/new" method="POST" enctype="multipart/form-data" id="ticketForm">
+    <div>
+      <label for="ticket">Ticket:</label>
+      <input type="text" 
+             id="ticket" 
+             name="ticket" 
+             value="<%= locals.oldData ? oldData.ticket : '' %>"
+             required 
+             minlength="3" 
+             maxlength="50">
+    </div>
+
+    <div>
+      <label for="service">Serviço:</label>
+      <select id="service" name="service" required>
+        <option value="">Selecione um serviço</option>
+        <% services.forEach(service => { %>
+          <option 
+            value="<%= service._id %>"
+            <%= (locals.oldData && oldData.service === service._id.toString()) ? 'selected' : '' %>
+          >
+            <%= service.name %>
+          </option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div>
+      <label for="client">Cliente:</label>
+      <input type="text" id="client" name="client" required minlength="3" maxlength="100">
+    </div>
+
+    <div>
+      <label for="email">Email:</label>
+      <input type="email" pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$" title="Please enter a valid email address">
+    </div>
+
+    <div>
+      <label for="start-date">Início do Prazo:</label>
+      <input type="date" id="start-date" name="startDate" required>
+    </div>
+
+    <div>
+      <label for="end-date">Fim do Prazo:</label>
+      <input type="date" id="end-date" name="endDate" required>
+    </div>
+
+    <div>
+      <label for="proof">Comprovante:</label>
+      <input type="file" id="proof" name="proof" accept="image/*" max-size="5242880">
+      <small>Formatos aceitos: JPG, PNG. Tamanho máximo: 5MB</small>
+    </div>
+
+    <button type="submit" class="submit-btn">Cadastrar Ticket</button>
+  </form>
+</div>
+
+<script>
+document.getElementById('ticketForm').addEventListener('submit', function(e) {
+  const startDate = new Date(document.getElementById('start-date').value);
+  const endDate = new Date(document.getElementById('end-date').value);
+  
+  if (endDate <= startDate) {
+    e.preventDefault();
+    alert('A data final deve ser posterior à data inicial');
+  }
+});
+</script>
+
+<%- include('partials/footer') %>
+
+
