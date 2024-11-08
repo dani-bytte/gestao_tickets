@@ -1,10 +1,51 @@
-<!-- views/user.ejs -->
-<%- include('partials/header', { title: 'Home' }) %>
+<!-- views/admin.ejs -->
+<%- include('partials/header', { title: 'Admin Dashboard' }) %>
 
 <div class="container">
-  <h2>Bem-vindo!</h2>
-  <p><%= username %>! Aqui estão suas informações.</p>
-  <a href="/auth/logout"><button>Sair</button></a>
+  <h2>Admin Dashboard</h2>
+  
+  <div class="dashboard">
+    <div class="card">
+      <h3>Total de Usuários</h3>
+      <p id="totalUsers">0</p>
+    </div>
+    <div class="card">
+      <h3>Tickets em Aberto</h3>
+      <p id="totalTickets">0</p>
+    </div>
+    <div class="card">
+      <h3>Tickets Pendentes</h3>
+      <p id="pendingTickets">0</p>
+    </div>
+    <div class="card">
+      <h3>Finalizados não Pagos</h3>
+      <p id="completedTickets">0</p>
+    </div>
+    <div class="card">
+      <h3>Tickets Vencidos</h3>
+      <p id="dueTickets">0</p>
+    </div>
+    <div class="card">
+      <h3>Vence Hoje</h3>
+      <p id="todayTickets">0</p>
+    </div>
+    <div class="card">
+      <h3>Próximos 2 Dias</h3>
+      <p id="upcomingTickets">0</p>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para tickets vencidos -->
+<div id="overdueTicketsModal" class="modal">
+  <div class="modal-content">
+    <span class="close" id="closeOverdueModal">&times;</span>
+    <h3>Tickets Vencidos</h3>
+    <div id="overdueTicketsList">
+      <!-- Conteúdo dinâmico aqui -->
+    </div>
+  </div>
 </div>
 
 <%- include('partials/footer') %>
+<script src="/js/fetchDashboardData.js"></script>

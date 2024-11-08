@@ -33,7 +33,7 @@ router.get('/new', auth, async (req, res) => {
 // POST route for creating ticket
 router.post('/new', auth, upload.single('proof'), async (req, res) => {
   try {
-    const { ticket, service, client, email, startDate, endDate } = req.body;
+    const { ticket, service, client, email, startDate, endDate, timeZone } = req.body;
     let proofUrl = null;
 
     if (req.file) {
@@ -46,13 +46,19 @@ router.post('/new', auth, upload.single('proof'), async (req, res) => {
       logger.info('Proof file uploaded:', fileName);
     }
 
+    // Ajustar as datas para o fuso horário recebido
+    const startDateTime = new Date(`${startDate}T00:00:00${timeZone}`);
+    logger.info('Start date:', startDateTime);
+    const endDateTime = new Date(`${endDate}T00:00:00${timeZone}`);
+    logger.info('End date:', endDateTime);
+
     const newTicket = new Ticket({
       ticket,
       service,
       client,
       email,
-      startDate,
-      endDate,
+      startDate: startDateTime,
+      endDate: endDateTime,
       proofUrl,
       status: 'andamento',
       payment: 'pendente',

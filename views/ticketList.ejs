@@ -18,12 +18,17 @@
       <option value="completo">Completo</option>
     </select>
   </div>
-
+  <div class="table-wrapper">
   <table aria-label="Lista de Tickets">
     <thead>
       <tr>
+        <% if (userRole === 'admin' || userRole === 'financeiro') { %>
+          <th scope="col">Booster</th>
+        <% } %>
         <th scope="col">Ticket</th>
-        <th scope="col">Serviço</th>
+        <% if (userRole === 'user') { %>
+          <th scope="col">Serviço</th>
+        <% } %>
         <th scope="col">Início do Prazo</th>
         <th scope="col">Fim do Prazo</th>
         <th scope="col">Status</th>
@@ -35,10 +40,15 @@
     <tbody>
       <% tickets.forEach(ticket => { %>
         <tr>
+          <% if (userRole === 'admin' || userRole === 'financeiro') { %>
+            <td data-label="Booster"><%= ticket.createdBy.username %></td>
+          <% } %>
           <td data-label="Ticket"><%= ticket.ticket %></td>
-          <td data-label="Serviço"><%= ticket.service.name %></td>
-          <td data-label="Início do Prazo"><%= new Date(ticket.startDate).toLocaleDateString() %></td>
-          <td data-label="Fim do Prazo"><%= new Date(ticket.endDate).toLocaleDateString() %></td>
+          <% if (userRole === 'user') { %>
+            <td data-label="Serviço"><%= ticket.service.name %></td>
+          <% } %>
+          <td data-label="Início"><%= new Date(ticket.startDate).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) %></td>
+          <td data-label="Vencimento"><%= new Date(ticket.endDate).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) %></td>
           <td data-label="Status">
             <span class="status-badge <%= ticket.status %>">
               <%= ticket.status %>
@@ -71,7 +81,7 @@
       <% }) %>
     </tbody>
   </table>
-
+  </div>
   <!-- No results message -->
   <div id="noResults" class="no-results" style="display: none;">
     Nenhum ticket encontrado
@@ -113,7 +123,6 @@
           <label for="editStatus">Status:</label>
           <select id="editStatus" name="status">
             <option value="andamento">Andamento</option>
-            <option value="pendente">Pendente</option>
             <option value="finalizado">Finalizado</option>
           </select>
         </div>

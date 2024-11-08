@@ -164,3 +164,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 });
+
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.getElementById('ticketForm');
+  const timeZoneInput = document.createElement('input');
+  timeZoneInput.type = 'hidden';
+  timeZoneInput.name = 'timeZone';
+  timeZoneInput.value = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  form.appendChild(timeZoneInput);
+});
