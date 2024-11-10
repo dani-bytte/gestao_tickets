@@ -39,6 +39,8 @@ body {
   --dropdown-hover-background-color: #4c4c4c;
   --card-background-color: #3c3c3c;
   --card-box-shadow: 0 2vh 4vh rgba(0, 0, 0, 0.5);
+  --input-background: #444;
+  --input-border-color: #555;
 }
 
 /* Reset para box-sizing */
@@ -656,3 +658,54 @@ td {
     text-overflow: ellipsis;
   }
 }
+
+/* Select2 Custom Theme Styles - Add !important for critical styles */
+.select2-container--default .select2-selection--single {
+  height: 5vh !important;
+  padding: 1vh !important;
+  border: 0.1vh solid #ccc !important;
+  border-radius: 1vh !important;
+  background-color: var(--background-color) !important;
+  color: var(--text-color) !important;
+}
+
+/* Remove earlier conflicting styles and keep only these specific ones */
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+  line-height: 3vh !important;
+  color: var(--text-color) !important;
+  padding-left: 1vh !important;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+  height: 5vh !important;
+  position: absolute !important;
+  right: 1vh !important;
+}
+
+.select2-dropdown {
+  background-color: var(--dropdown-background-color) !important;
+  border: 0.1vh solid #ccc !important;
+  border-radius: 1vh !important;
+  box-shadow: var(--card-box-shadow) !important;
+}
+
+.select2-search__field {
+  background-color: var(--background-color) !important;
+  color: var(--text-color) !important;
+}
+
+.select2-results__option {
+  color: var(--text-color) !important;
+  padding: 1vh !important;
+}
+
+.select2-container--default .select2-results__option--highlighted[aria-selected] {
+  background-color: var(--button-bg-color) !important;
+  color: var(--button-text-color) !important;
+}
+
+.select2-container--default .select2-results__option[aria-selected=true] {
+  background-color: var(--dropdown-hover-background-color) !important;
+}
+
+/* Remove all other Select2 related styles from your CSS */

@@ -1,17 +1,13 @@
-// routes/tickets.js
-const express = require('express');
-const router = express.Router();
+// src/controllers/ticketController.js
 const multer = require('multer');
 const { minioClient, minioConfig, getSignedUrl } = require('../config/minioClient');
-const auth = require('../middleware/auth');
 const logger = require('../config/logger');
 const Ticket = require('../models/Ticket');
 const Service = require('../models/Service');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-// GET route for ticket form
-router.get('/new', auth, async (req, res) => {
+const renderTicketForm = async (req, res) => {
   try {
     const services = await Service.find().lean();
     res.render('ticketForm', {
@@ -28,10 +24,9 @@ router.get('/new', auth, async (req, res) => {
       error: 'Erro ao carregar formulário'
     });
   }
-});
+};
 
-// POST route for creating ticket
-router.post('/new', auth, upload.single('proof'), async (req, res) => {
+const createTicket = async (req, res) => {
   try {
     const { ticket, service, client, email, startDate, endDate, timeZone } = req.body;
     let proofUrl = null;
@@ -78,10 +73,9 @@ router.post('/new', auth, upload.single('proof'), async (req, res) => {
       oldData: req.body
     });
   }
-});
+};
 
-// Endpoint to get signed URL for proof
-router.get('/proof-url/:fileName', auth, async (req, res) => {
+const getSignedProofUrl = async (req, res) => {
   try {
     const { fileName } = req.params;
     const signedUrl = await getSignedUrl(fileName);
@@ -90,10 +84,9 @@ router.get('/proof-url/:fileName', auth, async (req, res) => {
     logger.error('Error getting signed URL:', error);
     res.status(500).json({ error: 'Erro ao obter URL assinada.' });
   }
-});
+};
 
-// Listar todos os tickets
-router.get('/', auth, async (req, res) => {
+const listTickets = async (req, res) => {
   try {
     let tickets;
     if (req.user.role === 'admin' || req.user.role === 'financeiro') {
@@ -112,10 +105,9 @@ router.get('/', auth, async (req, res) => {
     logger.error('Error loading tickets:', err);
     res.status(500).send('Erro ao carregar os tickets');
   }
-});
+};
 
-// GET route for fetching ticket details
-router.get('/:id', auth, async (req, res) => {
+const getTicketById = async (req, res) => {
   try {
     const ticket = await Ticket.findById(req.params.id)
       .populate('service', 'name')
@@ -125,10 +117,9 @@ router.get('/:id', auth, async (req, res) => {
     logger.error('Error fetching ticket:', error);
     res.status(500).json({ error: 'Erro ao buscar ticket.' });
   }
-});
+};
 
-// PUT route for updating ticket
-router.put('/:id', auth, async (req, res) => {
+const updateTicket = async (req, res) => {
   try {
     const { status, payment } = req.body;
     const ticket = await Ticket.findById(req.params.id);
@@ -149,15 +140,14 @@ router.put('/:id', auth, async (req, res) => {
     logger.error('Error updating ticket:', error);
     res.status(500).json({ error: 'Erro ao atualizar ticket.' });
   }
-});
+};
 
-router.get('/ticketForm', async (req, res) => {
-  try {
-    const services = await Service.find();
-    res.render('ticketForm', { services });
-  } catch (error) {
-    res.status(500).send('Erro ao carregar o formulário.');
-  }
-});
-
-module.exports = router;
+module.exports = {
+  upload,
+  renderTicketForm,
+  createTicket,
+  getSignedProofUrl,
+  listTickets,
+  getTicketById,
+  updateTicket
+};

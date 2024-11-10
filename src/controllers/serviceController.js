@@ -1,13 +1,9 @@
-const express = require('express');
-const router = express.Router();
+// src/controllers/serviceController.js
 const { body, validationResult } = require('express-validator');
-const auth = require('../middleware/auth');
-const checkUserRole = require('../middleware/roleAuth');
-const Category = require('../models/Category');
-const Service = require('../models/Service');
-const logger = require('../config/logger');
+const Category = require('@models/Category');
+const Service = require('@models/Service');
+const logger = require('@config/logger');
 
-// Validações
 const serviceValidation = [
   body('serviceType').trim().notEmpty().withMessage('Tipo de serviço é obrigatório'),
   body('dueDate').isInt().withMessage('Data de vencimento inválida'),
@@ -20,11 +16,7 @@ const serviceValidation = [
   })
 ];
 
-router.use(auth);
-router.use(checkUserRole(['financeiro', 'admin']));
-
-
-router.get('/register', async (req, res) => {
+const renderRegisterServicePage = async (req, res) => {
   try {
     const categories = await Category.find().lean();
     res.render('registerService', { 
@@ -37,9 +29,9 @@ router.get('/register', async (req, res) => {
       error: 'Erro ao carregar o formulário' 
     });
   }
-});
+};
 
-router.post('/register', serviceValidation, async (req, res) => {
+const registerService = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -80,9 +72,9 @@ router.post('/register', serviceValidation, async (req, res) => {
       error: 'Erro ao cadastrar o serviço' 
     });
   }
-});
+};
 
-router.get('/', async (req, res) => {
+const listServices = async (req, res) => {
   try {
     const services = await Service.find()
       .populate('category')
@@ -95,9 +87,9 @@ router.get('/', async (req, res) => {
       error: 'Erro ao carregar serviços' 
     });
   }
-});
+};
 
-router.get('/:id', auth, async (req, res) => {
+const getServiceById = async (req, res) => {
   try {
     const service = await Service.findById(req.params.id);
     if (!service) {
@@ -108,6 +100,12 @@ router.get('/:id', auth, async (req, res) => {
     logger.error('Erro ao buscar serviço:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
-});
+};
 
-module.exports = router;
+module.exports = {
+  serviceValidation,
+  renderRegisterServicePage,
+  registerService,
+  listServices,
+  getServiceById
+};

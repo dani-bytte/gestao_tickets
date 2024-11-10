@@ -32,19 +32,19 @@
 
     <div>
       <label for="service">Serviço:</label>
-      <select id="service" name="service" required>
-        <option value="">Selecione um serviço</option>
-        <% services.forEach(service => { %>
-          <option 
-            value="<%= service._id %>"
-            <%= (locals.oldData && oldData.service === service._id.toString()) ? 'selected' : '' %>
-          >
-            <%= service.name %>
-          </option>
-        <% }) %>
+      <select id="service" name="service" class="searchable-select" required>
+          <option value="">Selecione um serviço</option>
+          <% services.forEach(service => { %>
+              <option 
+                  value="<%= service._id %>"
+                  data-due-date="<%= service.dueDate %>"
+                  <%= (locals.oldData && oldData.service === service._id.toString()) ? 'selected' : '' %>
+              >
+                  <%= service.name %>
+              </option>
+          <% }) %>
       </select>
-    </div>
-
+  </div>
     <div>
       <label for="client">Cliente:</label>
       <input type="text" id="client" name="client" required minlength="3" maxlength="100">
@@ -62,7 +62,7 @@
 
     <div>
       <label for="end-date">Fim do Prazo:</label>
-      <input type="date" id="end-date" name="endDate" required>
+      <input type="date" id="end-date" name="endDate" required readonly>
     </div>
 
     <div>
@@ -75,16 +75,8 @@
   </form>
 </div>
 
-<script>
-document.getElementById('ticketForm').addEventListener('submit', function(e) {
-  const startDate = new Date(document.getElementById('start-date').value);
-  const endDate = new Date(document.getElementById('end-date').value);
-  
-  if (endDate <= startDate) {
-    e.preventDefault();
-    alert('A data final deve ser posterior à data inicial');
-  }
-});
-</script>
+<script src="/js/ticketForm.js"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
 <%- include('partials/footer') %>
