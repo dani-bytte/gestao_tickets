@@ -1,3 +1,10 @@
-<!-- views/financeiro.ejs -->
-<h2>Painel Financeiro</h2>
-<p>Bem-vindo, <%= username %>! Aqui você pode acessar as informações financeiras.</p>
+<!-- views/user.ejs -->
+<%- include('partials/header', { title: 'Home' }) %>
+
+<div class="container">
+  <h2>Bem-vindo!</h2>
+  <p><%= username %>! Aqui estão suas informações.</p>
+  <a href="/auth/logout"><button>Sair</button></a>
+</div>
+
+<%- include('partials/footer') %>

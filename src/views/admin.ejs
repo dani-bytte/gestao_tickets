@@ -34,6 +34,11 @@
       <p id="upcomingTickets">0</p>
     </div>
   </div>
+  <!-- Gráfico de Status dos Tickets -->
+  <div class="chart-container">
+    <canvas id="ticketStatusChart" width="400" height="200"></canvas>
+  </div>
+
 </div>
 
 <!-- Modal para tickets vencidos -->
@@ -48,4 +53,5 @@
 </div>
 
 <%- include('partials/footer') %>
-<script src="/js/fetchDashboardData.js"></script>
+<%- js('fetchDashboardData.js') %>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>

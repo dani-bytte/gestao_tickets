@@ -28,6 +28,7 @@ const getDashboardData = async (req, res) => {
     const todayTickets = await Ticket.countDocuments({ endDate: { $gte: todayStart, $lte: todayEnd }, status: 'andamento' });
     const upcomingTickets = await Ticket.countDocuments({ endDate: { $gt: todayEnd, $lte: twoDaysLater }, status: 'andamento' });
 
+    res.setHeader('Cache-Control', 'no-store'); // Evitar cache
     res.json({ totalUsers, totalTickets, pendingTickets, completedTickets, dueTickets, todayTickets, upcomingTickets });
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
@@ -49,6 +50,7 @@ const getOverdueTickets = async (req, res) => {
       .select('ticket endDate createdBy status')
       .lean();
 
+    res.setHeader('Cache-Control', 'no-store'); // Evitar cache
     res.json(overdueTickets);
   } catch (error) {
     console.error('Error fetching overdue tickets:', error);
@@ -70,6 +72,7 @@ const getTodayTickets = async (req, res) => {
       .select('ticket endDate createdBy status')
       .lean();
 
+    res.setHeader('Cache-Control', 'no-store'); // Evitar cache
     res.json(tickets);
   } catch (error) {
     console.error('Error fetching today tickets:', error);
@@ -91,6 +94,7 @@ const getUpcomingTickets = async (req, res) => {
       .select('ticket endDate createdBy status')
       .lean();
 
+    res.setHeader('Cache-Control', 'no-store'); // Evitar cache
     res.json(tickets);
   } catch (error) {
     console.error('Error fetching upcoming tickets:', error);
@@ -113,11 +117,11 @@ const renderUserPage = (req, res) => {
 const redirectToRolePage = (req, res) => {
   const role = req.user.role;
   if (role === 'admin') {
-    res.redirect('/home/admin');
+    res.redirect('/admin');
   } else if (role === 'financeiro') {
-    res.redirect('/home/financeiro');
+    res.redirect('/financeiro');
   } else {
-    res.redirect('/home/user');
+    res.redirect('/user');
   }
 };
 

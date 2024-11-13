@@ -79,8 +79,16 @@ const loginUser = async (req, res) => {
       maxAge: 3600000 // 1 hora
     });
 
-    logger.info(`Login bem sucedido: ${username}`);
-    res.redirect('/home');
+    logger.info(`Login bem sucedido: ${username} and role: ${user.role}`);
+    const role = user.role;
+    if (role === 'admin') {
+      res.redirect('/admin');
+    } else if (role === 'admin') {
+      res.redirect('/financeiro');
+    } else {
+      res.redirect('/user');
+    }
+    
   } catch (err) {
     logger.error('Erro no login:', err);
     res.status(500).render('login', { error: 'Erro no servidor' });
@@ -92,6 +100,7 @@ const logoutUser = (req, res) => {
   res.redirect('/auth/login');
 };
 
+
 module.exports = {
   registerValidation,
   loginLimiter,
@@ -99,5 +108,5 @@ module.exports = {
   registerUser,
   renderLoginPage,
   loginUser,
-  logoutUser
+  logoutUser,
 };

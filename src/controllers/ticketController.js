@@ -1,9 +1,9 @@
 // src/controllers/ticketController.js
 const multer = require('multer');
-const { minioClient, minioConfig, getSignedUrl } = require('../config/minioClient');
-const logger = require('../config/logger');
-const Ticket = require('../models/Ticket');
-const Service = require('../models/Service');
+const { minioClient, minioConfig, getSignedUrl } = require('@config/minioClient');
+const logger = require('@config/logger');
+const Ticket = require('@models/Ticket');
+const Service = require('@models/Service');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
