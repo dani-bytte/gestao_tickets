@@ -6,7 +6,7 @@ const ticketRoutes = require('@routes/tickets');
 
 module.exports = [
   { path: '/auth', controller: authRoutes },
-  { path: '', controller: homeRoutes },
+  { path: '/home', controller: homeRoutes },
   { path: '/services', controller: serviceRoutes },
   { path: '/tickets', controller: ticketRoutes },
 ];

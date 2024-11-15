@@ -6,7 +6,6 @@ const ticketController = require('@controllers/ticketController');
 
 router.use(auth);
 
-router.get('/new', ticketController.renderTicketForm);
 router.post('/new', ticketController.upload.single('proof'), ticketController.createTicket);
 router.get('/proof-url/:fileName', ticketController.getSignedProofUrl);
 router.get('/', ticketController.listTickets);

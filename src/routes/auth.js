@@ -1,12 +1,21 @@
 // src/routes/auth.js
 const express = require('express');
-const router = express.Router();
-const authController = require('@controllers/authController');
+const { 
+  registerValidation, 
+  loginLimiter, 
+  changePasswordLimiter, 
+  registerUser, 
+  loginUser, 
+  changePassword, 
+  logoutUser 
+} = require('@controllers/authController');
+const auth = require('@middleware/auth/auth');
 
-router.get('/register', authController.renderRegisterPage);
-router.post('/register', authController.registerValidation, authController.registerUser);
-router.get('/login', authController.renderLoginPage);
-router.post('/login', authController.loginLimiter, authController.loginUser);
-router.get('/logout', authController.logoutUser);
+const router = express.Router();
+
+router.post('/register', auth, registerValidation, registerUser);
+router.post('/login', loginLimiter, loginUser);
+router.post('/logout', auth, logoutUser);
+router.post('/change-password', auth, changePasswordLimiter, changePassword);
 
 module.exports = router;

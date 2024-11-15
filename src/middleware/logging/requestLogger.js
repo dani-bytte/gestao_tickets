@@ -1,5 +1,5 @@
 // middleware/requestLogger.js
-const logger = require('../../config/logger');
+const logger = require('@config/logger');
 
 const requestLogger = (req, res, next) => {
   const start = Date.now();

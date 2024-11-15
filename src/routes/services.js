@@ -8,9 +8,12 @@ const serviceController = require('@controllers/serviceController');
 router.use(auth);
 router.use(checkUserRole(['financeiro', 'admin']));
 
-router.get('/register', serviceController.renderRegisterServicePage);
-router.post('/register', serviceController.serviceValidation, serviceController.registerService);
-router.get('/', serviceController.listServices);
+router.post(
+  '/register',
+  serviceController.serviceValidation,
+  serviceController.registerService
+);
+router.get('/', serviceController.getServices);
 router.get('/:id', serviceController.getServiceById);
 
 module.exports = router;

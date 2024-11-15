@@ -7,45 +7,24 @@ const Service = require('@models/Service');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-const renderTicketForm = async (req, res) => {
-  try {
-    const services = await Service.find().lean();
-    res.render('ticketForm', {
-      title: 'Cadastro de Ticket',
-      services: services,
-      errors: [],
-      error: null,
-      oldData: {}
-    });
-  } catch (error) {
-    logger.error('Error loading ticket form:', error);
-    res.status(500).render('error', {
-      title: 'Erro',
-      error: 'Erro ao carregar formulário'
-    });
-  }
-};
-
 const createTicket = async (req, res) => {
   try {
     const { ticket, service, client, email, startDate, endDate, timeZone } = req.body;
     let proofUrl = null;
 
     if (req.file) {
-      const fileName = `Stelaryous/${req.user}_${req.file.originalname}`;
+      const fileName = `Stelaryous/${req.user.username}_${req.file.originalname}`;
       await minioClient.putObject(minioConfig.bucketName, fileName, req.file.buffer, {
         'Content-Type': req.file.mimetype
       });
 
       proofUrl = fileName;
-      logger.info('Proof file uploaded:', fileName);
+      logger.info('Arquivo de comprovante enviado:', fileName);
     }
 
     // Ajustar as datas para o fuso horário recebido
     const startDateTime = new Date(`${startDate}T00:00:00${timeZone}`);
-    logger.info('Start date:', startDateTime);
     const endDateTime = new Date(`${endDate}T00:00:00${timeZone}`);
-    logger.info('End date:', endDateTime);
 
     const newTicket = new Ticket({
       ticket,
@@ -61,17 +40,16 @@ const createTicket = async (req, res) => {
     });
 
     await newTicket.save();
-    res.redirect('/tickets');
+    logger.info(`Ticket criado por ${req.user.username}`);
+
+    res.status(201).json({
+      message: 'Ticket criado com sucesso',
+      ticket: newTicket
+    });
 
   } catch (error) {
-    logger.error('Error creating ticket:', error);
-    res.status(500).render('ticketForm', {
-      title: 'Cadastro de Ticket',
-      services: await Service.find().lean(),
-      errors: [],
-      error: 'Erro ao criar ticket',
-      oldData: req.body
-    });
+    logger.error('Erro ao criar ticket:', error);
+    res.status(500).json({ error: 'Erro ao criar ticket' });
   }
 };
 
@@ -81,7 +59,7 @@ const getSignedProofUrl = async (req, res) => {
     const signedUrl = await getSignedUrl(fileName);
     res.json({ signedUrl });
   } catch (error) {
-    logger.error('Error getting signed URL:', error);
+    logger.error('Erro ao obter URL assinada:', error);
     res.status(500).json({ error: 'Erro ao obter URL assinada.' });
   }
 };
@@ -100,10 +78,11 @@ const listTickets = async (req, res) => {
         .populate('service', 'name')
         .lean();
     }
-    res.render('ticketList', { tickets });
+
+    res.json(tickets);
   } catch (err) {
-    logger.error('Error loading tickets:', err);
-    res.status(500).send('Erro ao carregar os tickets');
+    logger.error('Erro ao carregar os tickets:', err);
+    res.status(500).json({ error: 'Erro ao carregar os tickets' });
   }
 };
 
@@ -112,9 +91,14 @@ const getTicketById = async (req, res) => {
     const ticket = await Ticket.findById(req.params.id)
       .populate('service', 'name')
       .lean();
+
+    if (!ticket) {
+      return res.status(404).json({ error: 'Ticket não encontrado' });
+    }
+
     res.json(ticket);
   } catch (error) {
-    logger.error('Error fetching ticket:', error);
+    logger.error('Erro ao buscar ticket:', error);
     res.status(500).json({ error: 'Erro ao buscar ticket.' });
   }
 };
@@ -124,27 +108,36 @@ const updateTicket = async (req, res) => {
     const { status, payment } = req.body;
     const ticket = await Ticket.findById(req.params.id);
 
+    if (!ticket) {
+      return res.status(404).json({ error: 'Ticket não encontrado' });
+    }
+
     // Permitir que todos os papéis atualizem o status
-    if (['admin', 'financeiro', 'user'].includes(req.user.role) && (status === 'finalizado' || status === 'andamento' || status === 'pendente')) {
+    if (
+      ['admin', 'financeiro', 'user'].includes(req.user.role) &&
+      ['finalizado', 'andamento', 'pendente'].includes(status)
+    ) {
       ticket.status = status;
     }
     
     // Permitir que apenas admin e financeiro atualizem o pagamento
-    if (['admin', 'financeiro'].includes(req.user.role) && (payment === 'completo' || payment === 'pendente')) {
+    if (
+      ['admin', 'financeiro'].includes(req.user.role) &&
+      ['completo', 'pendente'].includes(payment)
+    ) {
       ticket.payment = payment;
     }
 
     await ticket.save();
-    res.json({ success: true });
+    res.json({ message: 'Ticket atualizado com sucesso' });
   } catch (error) {
-    logger.error('Error updating ticket:', error);
+    logger.error('Erro ao atualizar ticket:', error);
     res.status(500).json({ error: 'Erro ao atualizar ticket.' });
   }
 };
 
 module.exports = {
   upload,
-  renderTicketForm,
   createTicket,
   getSignedProofUrl,
   listTickets,

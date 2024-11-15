@@ -4,6 +4,8 @@ const User = require('@models/User');
 const jwt = require('jsonwebtoken');
 const logger = require('@config/logger');
 const rateLimit = require('express-rate-limit');
+const crypto = require('crypto');
+const transporter = require('@config/emailConfig');
 require('dotenv').config();
 
 const registerValidation = [
@@ -12,9 +14,9 @@ const registerValidation = [
     .isLength({ min: 3 })
     .escape()
     .withMessage('Username deve ter no mínimo 3 caracteres'),
-  body('password')
-    .isLength({ min: 6 })
-    .withMessage('Senha deve ter no mínimo 6 caracteres'),
+  body('email')
+    .isEmail()
+    .withMessage('Email inválido'),
 ];
 
 const loginLimiter = rateLimit({
@@ -23,90 +25,131 @@ const loginLimiter = rateLimit({
   message: { error: 'Muitas tentativas de login. Tente novamente em 15 minutos.' }
 });
 
-const renderRegisterPage = (req, res) => {
-  res.render('register', { errors: [] });
-};
+const changePasswordLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hora
+  max: 3, // máximo 3 tentativas
+  message: { 
+    error: 'Muitas tentativas de alteração de senha. Tente novamente em 1 hora.' 
+  }
+});
 
 const registerUser = async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Acesso negado' });
+  }
+
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).render('register', { errors: errors.array() });
+      return res.status(400).json({ errors: errors.array() });
     }
 
-    const { username, password, email } = req.body;
+    const { username, email } = req.body;
     const existingUser = await User.findOne({ $or: [{ username }, { email }] });
 
     if (existingUser) {
-      return res.status(400).render('register', { errors: [{ msg: 'Usuário ou email já existe' }] });
+      return res.status(400).json({ error: 'Usuário ou email já existe' });
     }
 
-    let user = new User({ username, password, email });
+    // Gerar uma senha provisória
+    const temporaryPassword = crypto.randomBytes(8).toString('hex');
+
+    const user = new User({
+      username,
+      password: temporaryPassword,
+      email,
+      isTemporaryPassword: true,
+    });
     await user.save();
 
-    logger.info(`Novo usuário registrado: ${username}`);
-    res.redirect('/auth/login');
+    logger.info(`Novo usuário registrado: ${username} com senha provisória`);
+
+    // Enviar a senha provisória ao usuário
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Sua senha provisória',
+      text: `Olá ${username},\n\nSua senha provisória é: ${temporaryPassword}\n\nPor favor, altere sua senha após o primeiro login.\n\nObrigado!`,
+    };
+
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        logger.error('Erro ao enviar email:', error);
+        return res.status(500).json({ error: 'Erro ao enviar email' });
+      }
+      logger.info('Email enviado:', info.response);
+      res.status(201).json({ message: 'Usuário registrado com sucesso. A senha provisória foi enviada.' });
+    });
   } catch (err) {
     logger.error('Erro no registro:', err);
-    res.status(500).render('register', { errors: [{ msg: 'Erro no servidor' }] });
+    res.status(500).json({ error: 'Erro no servidor' });
   }
-};
-
-const renderLoginPage = (req, res) => {
-  res.render('login', { error: null });
 };
 
 const loginUser = async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).render('login', { error: 'Credenciais inválidas' });
-    }
-
     const { username, password } = req.body;
     const user = await User.findOne({ username });
 
     if (!user || !(await user.comparePassword(password))) {
-      return res.status(400).render('login', { error: 'Credenciais inválidas' });
+      return res.status(400).json({ error: 'Credenciais inválidas' });
+    }
+
+    if (user.isTemporaryPassword) {
+      return res.status(403).json({ error: 'Senha provisória. Por favor, altere sua senha.' });
     }
 
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 3600000 // 1 hora
-    });
+    logger.info(`Login bem-sucedido: ${username}`);
 
-    logger.info(`Login bem sucedido: ${username} and role: ${user.role}`);
-    const role = user.role;
-    if (role === 'admin') {
-      res.redirect('/admin');
-    } else if (role === 'admin') {
-      res.redirect('/financeiro');
-    } else {
-      res.redirect('/user');
-    }
-    
+    res.json({ token, role: user.role });
   } catch (err) {
     logger.error('Erro no login:', err);
-    res.status(500).render('login', { error: 'Erro no servidor' });
+    res.status(500).json({ error: 'Erro no servidor' });
+  }
+};
+
+const changePassword = async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    
+    // Validar força da nova senha
+    if (newPassword.length < 8) {
+      return res.status(400).json({ 
+        error: 'A nova senha deve ter pelo menos 8 caracteres' 
+      });
+    }
+
+    const user = await User.findById(req.user._id);
+
+    if (!user || !(await user.comparePassword(oldPassword))) {
+      return res.status(400).json({ error: 'Senha antiga inválida' });
+    }
+
+    user.password = newPassword;
+    user.isTemporaryPassword = false;
+    await user.save();
+
+    logger.info(`Senha alterada para o usuário: ${user.username}`);
+
+    res.status(200).json({ message: 'Senha alterada com sucesso' });
+  } catch (err) {
+    logger.error('Erro ao alterar senha:', err);
+    res.status(500).json({ error: 'Erro no servidor' });
   }
 };
 
 const logoutUser = (req, res) => {
-  res.clearCookie('token');
-  res.redirect('/auth/login');
+  res.status(200).json({ message: 'Logout bem-sucedido' });
 };
-
 
 module.exports = {
   registerValidation,
   loginLimiter,
-  renderRegisterPage,
+  changePasswordLimiter,
   registerUser,
-  renderLoginPage,
   loginUser,
+  changePassword,
   logoutUser,
 };
