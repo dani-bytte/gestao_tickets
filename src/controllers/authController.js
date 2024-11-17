@@ -27,7 +27,7 @@ const loginLimiter = rateLimit({
 
 const changePasswordLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hora
-  max: 3, // máximo 3 tentativas
+  max: 10, // máximo 3 tentativas
   message: { 
     error: 'Muitas tentativas de alteração de senha. Tente novamente em 1 hora.' 
   }
@@ -95,15 +95,17 @@ const loginUser = async (req, res) => {
       return res.status(400).json({ error: 'Credenciais inválidas' });
     }
 
-    if (user.isTemporaryPassword) {
-      return res.status(403).json({ error: 'Senha provisória. Por favor, altere sua senha.' });
-    }
+    const tokenPayload = {
+      userId: user._id,
+      isTemporaryPassword: user.isTemporaryPassword, // Inclua essa informação no payload
+    };
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '1h' });
 
     logger.info(`Login bem-sucedido: ${username}`);
 
-    res.json({ token, role: user.role });
+    // Indique no response se a senha é provisória
+    res.json({ token, role: user.role, isTemporaryPassword: user.isTemporaryPassword });
   } catch (err) {
     logger.error('Erro no login:', err);
     res.status(500).json({ error: 'Erro no servidor' });
@@ -113,11 +115,11 @@ const loginUser = async (req, res) => {
 const changePassword = async (req, res) => {
   try {
     const { oldPassword, newPassword } = req.body;
-    
+
     // Validar força da nova senha
     if (newPassword.length < 8) {
-      return res.status(400).json({ 
-        error: 'A nova senha deve ter pelo menos 8 caracteres' 
+      return res.status(400).json({
+        error: 'A nova senha deve ter pelo menos 8 caracteres',
       });
     }
 
@@ -129,6 +131,7 @@ const changePassword = async (req, res) => {
 
     user.password = newPassword;
     user.isTemporaryPassword = false;
+
     await user.save();
 
     logger.info(`Senha alterada para o usuário: ${user.username}`);
@@ -144,6 +147,15 @@ const logoutUser = (req, res) => {
   res.status(200).json({ message: 'Logout bem-sucedido' });
 };
 
+const validateToken = async (req, res) => {
+  try {
+    // Se o middleware de autenticação passar, o token é válido
+    res.status(200).json({ valid: true });
+  } catch (error) {
+    res.status(401).json({ valid: false });
+  }
+};
+
 module.exports = {
   registerValidation,
   loginLimiter,
@@ -152,4 +164,5 @@ module.exports = {
   loginUser,
   changePassword,
   logoutUser,
+  validateToken,
 };

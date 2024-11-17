@@ -7,7 +7,8 @@ const {
   registerUser, 
   loginUser, 
   changePassword, 
-  logoutUser 
+  logoutUser,
+  validateToken
 } = require('@controllers/authController');
 const auth = require('@middleware/auth/auth');
 
@@ -17,5 +18,6 @@ router.post('/register', auth, registerValidation, registerUser);
 router.post('/login', loginLimiter, loginUser);
 router.post('/logout', auth, logoutUser);
 router.post('/change-password', auth, changePasswordLimiter, changePassword);
+router.get('/validate-token', auth, validateToken);
 
 module.exports = router;

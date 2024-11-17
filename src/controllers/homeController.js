@@ -157,12 +157,31 @@ const registerInfo = async (req, res) => {
     return res.status(403).json({ error: 'Acesso negado' });
   }
 
-  const { fullName, nickname, birthDate, pixKey, whatsapp, email } = req.body;
-
-  // Log dos dados recebidos
-  //console.log('Dados recebidos:', { fullName, nickname, birthDate, pixKey, whatsapp, email });
+  const { fullName, nickname, birthDay, birthMonth, birthYear, pixKey, whatsapp, email } = req.body;
 
   try {
+    if (
+      !birthDay ||
+      !birthMonth ||
+      !birthYear ||
+      birthDay < 1 ||
+      birthDay > 31 ||
+      birthMonth < 1 ||
+      birthMonth > 12 ||
+      birthYear < 1900 ||
+      birthYear > new Date().getFullYear()
+    ) {
+      return res.status(400).json({ error: 'Data de nascimento inválida' });
+    }
+
+    // Construir a data de nascimento
+    const birthDate = new Date(birthYear, birthMonth - 1, birthDay);
+
+    // Verificar se a data é válida
+    if (isNaN(birthDate.getTime())) {
+      return res.status(400).json({ error: 'Data de nascimento inválida' });
+    }
+
     // Verificar se o usuário já possui um perfil
     const user = await User.findById(req.user._id).populate('profile');
     if (!user) {
@@ -171,7 +190,6 @@ const registerInfo = async (req, res) => {
     }
 
     if (user.profile) {
-      // Se o usuário já possui um perfil, retornar uma mensagem apropriada
       logger.warn('Perfil já criado para este usuário');
       return res.status(400).json({ message: 'Perfil já criado para este usuário' });
     }
@@ -180,7 +198,7 @@ const registerInfo = async (req, res) => {
     const newProfileUser = new ProfileUser({
       fullName,
       nickname,
-      birthDate,
+      birthDate, // Use a data construída
       pixKey,
       whatsapp,
       email,
@@ -188,14 +206,13 @@ const registerInfo = async (req, res) => {
 
     await newProfileUser.save();
 
-    // Atualizar o usuário atual para referenciar o novo ProfileUser
+    // Atualizar o usuário para referenciar o novo ProfileUser
     user.profile = newProfileUser._id;
     await user.save();
 
     res.status(201).json({ message: 'Informações registradas com sucesso' });
   } catch (error) {
     logger.error('Erro ao registrar informações:', error);
-    console.error('Erro ao registrar informações:', error); // Adiciona log no console
     res.status(500).json({ error: 'Erro ao registrar informações' });
   }
 };
