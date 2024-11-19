@@ -219,10 +219,32 @@ const registerInfo = async (req, res) => {
 
 const getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).populate('profile');
+    // Get requested user ID from query params
+    const requestedUserId = req.query.user;
+
+    // If no specific user requested, return logged user's profile
+    if (!requestedUserId) {
+      const user = await User.findById(req.user._id).populate('profile');
+      if (!user) {
+        return res.status(404).json({ message: 'Usuário não encontrado' });
+      }
+      return res.json(user.profile);
+    }
+
+    // Check if requesting other user's profile
+    if (requestedUserId !== req.user._id.toString()) {
+      // Only admin can view other profiles
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: 'Acesso negado' });
+      }
+    }
+
+    // Get requested user profile
+    const user = await User.findById(requestedUserId).populate('profile');
     if (!user) {
       return res.status(404).json({ message: 'Usuário não encontrado' });
     }
+    
     res.json(user.profile);
   } catch (error) {
     logger.error('Erro ao obter informações do perfil:', error);

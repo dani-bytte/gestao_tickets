@@ -1,6 +1,5 @@
 // models/User.js
 const mongoose = require('mongoose');
-const bcrypt = require('bcrypt');
 const { ROLES } = require('@config/constants');
 
 const userSchema = new mongoose.Schema({

@@ -5,31 +5,36 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "create-indexes": "node scripts/createIndexes.js"
+    "create-indexes": "node scripts/createIndexes.js",
+    "test": "node --experimental-vm-modules node_modules/mocha/bin/mocha"
   },
   "dependencies": {
-    "bcrypt": "^5.1.1",
+    "argon2": "^0.41.1",
     "bcryptjs": "^2.4.3",
     "compression": "^1.7.5",
     "connect-timeout": "^1.9.0",
     "cors": "^2.8.5",
+    "del": "^8.0.0",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
     "express-rate-limit": "^7.4.1",
     "express-validator": "^7.2.0",
     "glob": "^11.0.0",
     "helmet": "^8.0.0",
-    "install": "^0.13.0",
+    "hpp": "^0.2.3",
     "ioredis": "^5.4.1",
+    "joi": "^17.11.0",
     "jsonwebtoken": "^9.0.2",
     "minio": "^8.0.2",
-    "module-alias": "^2.2.2",
+    "module-alias": "^2.2.3",
     "mongodb": "^6.10.0",
     "mongoose": "^8.8.1",
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^6.9.16",
     "sharp": "^0.33.5",
-    "winston": "^3.16.0"
+    "swagger-ui-express": "^5.0.0",
+    "winston": "^3.17.0",
+    "xss": "^1.0.15"
   },
   "_moduleAliases": {
     "@config": "src/config",
@@ -38,8 +43,5 @@
     "@routes": "src/routes",
     "@utils": "src/utils",
     "@controllers": "src/controllers"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.7"
   }
 }

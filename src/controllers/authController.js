@@ -6,6 +6,8 @@ const logger = require('@config/logger');
 const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
 const transporter = require('@config/emailConfig');
+const role = require('@config/constants').ROLES;
+const ProfileUser = require('@models/ProfileUser');
 require('dotenv').config();
 
 const registerValidation = [
@@ -34,7 +36,7 @@ const changePasswordLimiter = rateLimit({
 });
 
 const registerUser = async (req, res) => {
-  if (req.user.role !== 'admin') {
+  if (req.user.role !== role.ADMIN) {
     return res.status(403).json({ error: 'Acesso negado' });
   }
 
@@ -95,17 +97,25 @@ const loginUser = async (req, res) => {
       return res.status(400).json({ error: 'Credenciais inválidas' });
     }
 
+    // Check if user has profile
+    const profile = await ProfileUser.findOne({ user: user._id }).lean();
+    const hasProfile = !!profile;
+
     const tokenPayload = {
       userId: user._id,
-      isTemporaryPassword: user.isTemporaryPassword, // Inclua essa informação no payload
+      isTemporaryPassword: user.isTemporaryPassword,
     };
 
     const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '1h' });
 
-    logger.info(`Login bem-sucedido: ${username}`);
+    logger.info(`Login bem-sucedido: ${username}, hasProfile: ${hasProfile}`);
 
-    // Indique no response se a senha é provisória
-    res.json({ token, role: user.role, isTemporaryPassword: user.isTemporaryPassword });
+    res.json({ 
+      token, 
+      role: user.role, 
+      isTemporaryPassword: user.isTemporaryPassword,
+      hasProfile // Add hasProfile to response
+    });
   } catch (err) {
     logger.error('Erro no login:', err);
     res.status(500).json({ error: 'Erro no servidor' });
@@ -156,6 +166,20 @@ const validateToken = async (req, res) => {
   }
 };
 
+const userinfo = async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Acesso negado' });
+  }
+
+  try {
+    const users = await User.find().select('id username email role isTemporaryPassword');
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao buscar usuários' });
+  }
+};
+
+
 module.exports = {
   registerValidation,
   loginLimiter,
@@ -165,4 +189,5 @@ module.exports = {
   changePassword,
   logoutUser,
   validateToken,
+  userinfo,
 };
