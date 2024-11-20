@@ -40,7 +40,7 @@ const ticketSchema = new mongoose.Schema({
   },
   proofUrl: { 
     type: String, 
-    default: null 
+    required: false 
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,

@@ -1,6 +1,5 @@
 require('module-alias/register');
 const express = require('express');
-const mongoose = require('mongoose');
 const helmet = require('helmet');
 const logger = require('@config/logger');
 const compression = require('compression');
@@ -8,11 +7,11 @@ const timeout = require('connect-timeout');
 const requestLogger = require('@middleware/logging/requestLogger');
 const errorLogger = require('@middleware/logging/errorLogger');
 const routes = require('@routes');
-const dbConfig = require('@config/database');
 const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
+app.set('trust proxy', 1); // Ajuste para confiar apenas no primeiro proxy
 
 // Middlewares
 app.use(helmet());
@@ -29,16 +28,6 @@ app.use((req, res, next) => {
 
 // Logger de requisições
 app.use(requestLogger);
-
-// Conexão ao MongoDB
-mongoose.connect(dbConfig.url, dbConfig.options)
-  .then(() => {
-    logger.info('Conectado ao MongoDB');
-  })
-  .catch(err => {
-    logger.error('Erro na conexão MongoDB:', err);
-    process.exit(1);
-  });
 
 // Middleware para garantir fechamento adequado de conexões
 app.use((req, res, next) => {

@@ -1,34 +1,54 @@
 // src/controllers/ticketController.js
 const multer = require('multer');
-const { minioClient, minioConfig, getSignedUrl } = require('@config/minioClient');
+const { connectToMinio, initializeBucket } = require('@config/minioConnection');
 const logger = require('@config/logger');
 const Ticket = require('@models/Ticket');
 const Service = require('@models/Service');
+const { minioConfig } = require('@config/minioClient');
+const connectToMongoDB = require('@config/mongoConnection');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
 const createTicket = async (req, res) => {
   try {
-    const { ticket, service, client, email, startDate, endDate, timeZone } = req.body;
+    await connectToMongoDB();
+
+    const { ticket, serviceId, client, email, startDate } = req.body;
     let proofUrl = null;
 
+    if (!ticket || !serviceId || !client || !email || !startDate) {
+      return res.status(400).json({ error: 'Todos os campos são obrigatórios' });
+    }
+
     if (req.file) {
+      await initializeBucket(); // Ensure bucket is initialized
+      const minioClient = connectToMinio();
       const fileName = `Stelaryous/${req.user.username}_${req.file.originalname}`;
       await minioClient.putObject(minioConfig.bucketName, fileName, req.file.buffer, {
         'Content-Type': req.file.mimetype
       });
 
-      proofUrl = fileName;
+      proofUrl = fileName; // Deve ser uma string
       logger.info('Arquivo de comprovante enviado:', fileName);
     }
 
-    // Ajustar as datas para o fuso horário recebido
-    const startDateTime = new Date(`${startDate}T00:00:00${timeZone}`);
-    const endDateTime = new Date(`${endDate}T00:00:00${timeZone}`);
+    // Buscar o serviço para obter o dueDate
+    const service = await Service.findById(serviceId);
+    if (!service) {
+      return res.status(404).json({ error: 'Serviço não encontrado' });
+    }
+
+    const startDateTime = new Date(startDate);
+    if (isNaN(startDateTime)) {
+      return res.status(400).json({ error: 'Data de início inválida' });
+    }
+
+    const endDateTime = new Date(startDateTime);
+    endDateTime.setDate(endDateTime.getDate() + service.dueDate);
 
     const newTicket = new Ticket({
       ticket,
-      service,
+      service: serviceId,
       client,
       email,
       startDate: startDateTime,
@@ -53,19 +73,52 @@ const createTicket = async (req, res) => {
   }
 };
 
-const getSignedProofUrl = async (req, res) => {
+const getProofImage = async (req, res) => {
   try {
+    await connectToMongoDB();
+
     const { fileName } = req.params;
-    const signedUrl = await getSignedUrl(fileName);
-    res.json({ signedUrl });
+    const minioClient = connectToMinio();
+
+    // Verificar se o usuário tem acesso ao ticket
+    const ticket = await Ticket.findOne({ proofUrl: fileName });
+
+    if (!ticket) {
+      return res.status(404).json({ error: 'Imagem não encontrada' });
+    }
+
+    // Verificar se o usuário tem permissão para acessar a imagem deste ticket
+    if (
+      ticket.createdBy.toString() !== req.user._id.toString() &&
+      req.user.role !== 'admin'
+    ) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    // Obter o objeto do MinIO
+    minioClient.getObject(
+      minioConfig.bucketName,
+      fileName,
+      (err, dataStream) => {
+        if (err) {
+          logger.error('Erro ao obter objeto do MinIO:', err);
+          return res.status(500).json({ error: 'Erro ao obter a imagem' });
+        }
+
+        res.setHeader('Content-Type', 'image/jpeg'); // Ajuste conforme o tipo de imagem
+        dataStream.pipe(res);
+      }
+    );
   } catch (error) {
-    logger.error('Erro ao obter URL assinada:', error);
-    res.status(500).json({ error: 'Erro ao obter URL assinada.' });
+    logger.error('Erro ao recuperar imagem:', error);
+    res.status(500).json({ error: 'Erro ao recuperar imagem' });
   }
 };
 
 const listTickets = async (req, res) => {
   try {
+    await connectToMongoDB();
+
     let tickets;
     if (req.user.role === 'admin' || req.user.role === 'financeiro') {
       tickets = await Ticket.find()
@@ -88,8 +141,11 @@ const listTickets = async (req, res) => {
 
 const getTicketById = async (req, res) => {
   try {
+    await connectToMongoDB();
+
     const ticket = await Ticket.findById(req.params.id)
       .populate('service', 'name')
+      .populate('createdBy', 'username')
       .lean();
 
     if (!ticket) {
@@ -105,6 +161,8 @@ const getTicketById = async (req, res) => {
 
 const updateTicket = async (req, res) => {
   try {
+    await connectToMongoDB();
+
     const { status, payment } = req.body;
     const ticket = await Ticket.findById(req.params.id);
 
@@ -136,11 +194,102 @@ const updateTicket = async (req, res) => {
   }
 };
 
+const handleViewProof = async () => {
+  if (!ticket.proofUrl) return;
+
+  console.log('ticket.proofUrl:', ticket.proofUrl);
+
+  try {
+    const token = localStorage.getItem('token');
+    const encodedFileName = encodeURIComponent(ticket.proofUrl);
+
+    // Use direct proxy endpoint with token
+    const proxyUrl = `/api/tickets/proof-image/${encodedFileName}?token=${token}`;
+    setProofUrl(proxyUrl);
+    setDialogOpen(true);
+  } catch (error) {
+    console.error('Error:', error);
+    toast({
+      title: 'Error',
+      description: 'Failed to open proof document',
+      variant: 'destructive',
+    });
+  }
+};
+
+const handleCreateTicket = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    const formData = new FormData();
+    formData.append('ticket', newTicket.ticket);
+    formData.append('serviceId', newTicket.serviceId);
+    formData.append('client', newTicket.client);
+    formData.append('email', newTicket.email);
+    formData.append('startDate', newTicket.startDate);
+    formData.append('endDate', newTicket.endDate);
+    if (newTicket.proof) {
+      formData.append('proof', newTicket.proof);
+    }
+
+    const response = await fetch('/api/tickets/new', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to create ticket');
+    }
+
+    const result = await response.json();
+    console.log('Ticket criado:', result);
+
+    setIsDialogOpen(false);
+    setNewTicket({
+      ticket: '',
+      serviceId: '',
+      client: '',
+      email: '',
+      startDate: '',
+      endDate: '',
+      proof: null,
+    });
+    await fetchTickets();
+
+    toast({
+      title: 'Success',
+      description: 'Ticket created successfully',
+    });
+  } catch (error) {
+    console.error('Error creating ticket:', error);
+    toast({
+      title: 'Error',
+      description: 'An unexpected error occurred',
+      variant: 'destructive',
+    });
+  }
+};
+
+const listServices = async (req, res) => {
+  try {
+    const services = await Service.find().lean();
+    res.json(services);
+  } catch (error) {
+    logger.error('Erro ao listar serviços:', error);
+    res.status(500).json({ error: 'Erro ao listar serviços' });
+  }
+};
+
 module.exports = {
   upload,
   createTicket,
-  getSignedProofUrl,
   listTickets,
   getTicketById,
-  updateTicket
+  updateTicket,
+  getProofImage,
+  handleViewProof,
+  handleCreateTicket,
+  listServices
 };

@@ -1,6 +1,7 @@
 // models/User.js
 const mongoose = require('mongoose');
-const { ROLES } = require('@config/constants');
+const argon2 = require('argon2'); // Importar argon2
+const { ROLES } = require('@config/constants'); // Importar ROLES
 
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
@@ -11,14 +12,12 @@ const userSchema = new mongoose.Schema({
   isTemporaryPassword: { type: Boolean, default: true }, // Novo campo
 });
 
-
 // Middleware para hash da senha
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
 
   try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
+    this.password = await argon2.hash(this.password); // Usar argon2 para hash da senha
     next();
   } catch (err) {
     next(err);
@@ -26,7 +25,7 @@ userSchema.pre('save', async function(next) {
 });
 
 userSchema.methods.comparePassword = function(candidatePassword) {
-  return bcrypt.compare(candidatePassword, this.password);
+  return argon2.verify(this.password, candidatePassword); // Usar argon2 para comparar senhas
 };
 
 module.exports = mongoose.model('User', userSchema);

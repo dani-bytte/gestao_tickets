@@ -3,9 +3,11 @@ const user = require('@models/User');
 const ProfileUser = require('@models/ProfileUser');
 const { ROLES } = require('@config/constants');
 const logger = require('@config/logger');
+const connectToMongoDB = require('@config/mongoConnection');
 
 const isAdmin = async (req, res, next) => {
   try {
+    await connectToMongoDB();
     if (req.user && req.user.role === ROLES.ADMIN) {
       if (req.user.isTemporaryPassword) {
         logger.warn(`Admin ${req.user.username} tried to access with temporary password`);
@@ -34,6 +36,8 @@ const isAdmin = async (req, res, next) => {
 
 const isUser = async (req, res, next) => {
   try {
+    await connectToMongoDB();
+
     if (req.user && (req.user.role === ROLES.USER || req.user.role === ROLES.ADMIN)) {
       if (req.user.isTemporaryPassword) {
         logger.warn(`User ${req.user.username} tried to access with temporary password`);
@@ -61,6 +65,5 @@ const isUser = async (req, res, next) => {
 };
 
 module.exports = {
-  isAdmin,
-  isUser
+  isUser, isAdmin
 };

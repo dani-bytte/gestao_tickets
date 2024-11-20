@@ -4,6 +4,7 @@ const ProfileUser = require('@models/ProfileUser');
 const Ticket = require('@models/Ticket');
 const logger = require('@config/logger');
 const { ROLES } = require('@config/constants');
+const connectToMongoDB = require('@config/mongoConnection');
 
 const getDashboardData = async (req, res) => {
   if (req.user.role !== 'admin') {
@@ -11,6 +12,8 @@ const getDashboardData = async (req, res) => {
   }
 
   try {
+    await connectToMongoDB();
+
     const totalUsers = await User.countDocuments();
     const totalTickets = await Ticket.countDocuments();
     const pendingTickets = await Ticket.countDocuments({ status: 'andamento' });
@@ -39,7 +42,6 @@ const getDashboardData = async (req, res) => {
       status: 'andamento',
     });
 
-    // Assumindo que você tem um campo createdAt no modelo Ticket
     const ticketsByMonth = await Ticket.aggregate([
       {
         $group: {
@@ -79,6 +81,8 @@ const getOverdueTickets = async (req, res) => {
   }
 
   try {
+    await connectToMongoDB();
+
     const today = new Date();
     today.setHours(23, 59, 59, 999);
 
@@ -90,7 +94,7 @@ const getOverdueTickets = async (req, res) => {
       .select('ticket endDate createdBy status')
       .lean();
 
-    res.setHeader('Cache-Control', 'no-store'); // Evitar cache
+    res.setHeader('Cache-Control', 'no-store');
     res.json(overdueTickets);
   } catch (error) {
     logger.error('Erro ao buscar tickets vencidos:', error);
@@ -104,6 +108,8 @@ const getTodayTickets = async (req, res) => {
   }
 
   try {
+    await connectToMongoDB();
+
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date();
@@ -117,7 +123,7 @@ const getTodayTickets = async (req, res) => {
       .select('ticket endDate createdBy status')
       .lean();
 
-    res.setHeader('Cache-Control', 'no-store'); // Evitar cache
+    res.setHeader('Cache-Control', 'no-store');
     res.json(tickets);
   } catch (error) {
     logger.error('Erro ao buscar tickets de hoje:', error);
@@ -131,6 +137,8 @@ const getUpcomingTickets = async (req, res) => {
   }
 
   try {
+    await connectToMongoDB();
+
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
     const twoDaysLater = new Date();
@@ -144,7 +152,7 @@ const getUpcomingTickets = async (req, res) => {
       .select('ticket endDate createdBy status')
       .lean();
 
-    res.setHeader('Cache-Control', 'no-store'); // Evitar cache
+    res.setHeader('Cache-Control', 'no-store');
     res.json(tickets);
   } catch (error) {
     logger.error('Erro ao buscar próximos tickets:', error);
@@ -160,6 +168,8 @@ const registerInfo = async (req, res) => {
   const { fullName, nickname, birthDay, birthMonth, birthYear, pixKey, whatsapp, email } = req.body;
 
   try {
+    await connectToMongoDB();
+
     if (
       !birthDay ||
       !birthMonth ||
@@ -174,15 +184,12 @@ const registerInfo = async (req, res) => {
       return res.status(400).json({ error: 'Data de nascimento inválida' });
     }
 
-    // Construir a data de nascimento
     const birthDate = new Date(birthYear, birthMonth - 1, birthDay);
 
-    // Verificar se a data é válida
     if (isNaN(birthDate.getTime())) {
       return res.status(400).json({ error: 'Data de nascimento inválida' });
     }
 
-    // Verificar se o usuário já possui um perfil
     const user = await User.findById(req.user._id).populate('profile');
     if (!user) {
       logger.warn('Usuário não encontrado');
@@ -194,11 +201,10 @@ const registerInfo = async (req, res) => {
       return res.status(400).json({ message: 'Perfil já criado para este usuário' });
     }
 
-    // Criar um novo documento ProfileUser
     const newProfileUser = new ProfileUser({
       fullName,
       nickname,
-      birthDate, // Use a data construída
+      birthDate,
       pixKey,
       whatsapp,
       email,
@@ -206,7 +212,6 @@ const registerInfo = async (req, res) => {
 
     await newProfileUser.save();
 
-    // Atualizar o usuário para referenciar o novo ProfileUser
     user.profile = newProfileUser._id;
     await user.save();
 
@@ -219,10 +224,10 @@ const registerInfo = async (req, res) => {
 
 const getProfile = async (req, res) => {
   try {
-    // Get requested user ID from query params
+    await connectToMongoDB();
+
     const requestedUserId = req.query.user;
 
-    // If no specific user requested, return logged user's profile
     if (!requestedUserId) {
       const user = await User.findById(req.user._id).populate('profile');
       if (!user) {
@@ -231,15 +236,12 @@ const getProfile = async (req, res) => {
       return res.json(user.profile);
     }
 
-    // Check if requesting other user's profile
     if (requestedUserId !== req.user._id.toString()) {
-      // Only admin can view other profiles
       if (req.user.role !== 'admin') {
         return res.status(403).json({ message: 'Acesso negado' });
       }
     }
 
-    // Get requested user profile
     const user = await User.findById(requestedUserId).populate('profile');
     if (!user) {
       return res.status(404).json({ message: 'Usuário não encontrado' });

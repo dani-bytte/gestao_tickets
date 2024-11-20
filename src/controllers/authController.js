@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const transporter = require('@config/emailConfig');
 const role = require('@config/constants').ROLES;
 const ProfileUser = require('@models/ProfileUser');
+const connectToMongoDB = require('@config/mongoConnection');
 require('dotenv').config();
 
 const registerValidation = [
@@ -29,7 +30,7 @@ const loginLimiter = rateLimit({
 
 const changePasswordLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hora
-  max: 10, // máximo 3 tentativas
+  max: 10, // máximo 10 tentativas
   message: { 
     error: 'Muitas tentativas de alteração de senha. Tente novamente em 1 hora.' 
   }
@@ -41,6 +42,8 @@ const registerUser = async (req, res) => {
   }
 
   try {
+    await connectToMongoDB();
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -90,6 +93,8 @@ const registerUser = async (req, res) => {
 
 const loginUser = async (req, res) => {
   try {
+    await connectToMongoDB();
+
     const { username, password } = req.body;
     const user = await User.findOne({ username });
 
@@ -97,12 +102,13 @@ const loginUser = async (req, res) => {
       return res.status(400).json({ error: 'Credenciais inválidas' });
     }
 
-    // Check if user has profile
     const profile = await ProfileUser.findOne({ user: user._id }).lean();
     const hasProfile = !!profile;
 
     const tokenPayload = {
       userId: user._id,
+      username: user.username,
+      role: user.role,
       isTemporaryPassword: user.isTemporaryPassword,
     };
 
@@ -114,7 +120,7 @@ const loginUser = async (req, res) => {
       token, 
       role: user.role, 
       isTemporaryPassword: user.isTemporaryPassword,
-      hasProfile // Add hasProfile to response
+      hasProfile
     });
   } catch (err) {
     logger.error('Erro no login:', err);
@@ -124,6 +130,8 @@ const loginUser = async (req, res) => {
 
 const changePassword = async (req, res) => {
   try {
+    await connectToMongoDB();
+
     const { oldPassword, newPassword } = req.body;
 
     // Validar força da nova senha
@@ -172,6 +180,8 @@ const userinfo = async (req, res) => {
   }
 
   try {
+    await connectToMongoDB();
+
     const users = await User.find().select('id username email role isTemporaryPassword');
     res.json(users);
   } catch (error) {
