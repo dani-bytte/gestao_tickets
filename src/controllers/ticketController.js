@@ -1,5 +1,6 @@
 // src/controllers/ticketController.js
 const multer = require('multer');
+const sharp = require('sharp');
 const { connectToMinio, initializeBucket } = require('@config/minioConnection');
 const logger = require('@config/logger');
 const Ticket = require('@models/Ticket');
@@ -20,12 +21,24 @@ const createTicket = async (req, res) => {
       return res.status(400).json({ error: 'Todos os campos são obrigatórios' });
     }
 
+    const existingTicket = await Ticket.findOne({ ticket });
+    if (existingTicket) {
+      logger.warn(`Tentativa de criar ticket duplicado: ${ticket} por usuário ${req.user.username}`);
+      return res.status(409).json({ error: 'Ticket já existe' });
+    }
+
     if (req.file) {
       await initializeBucket(); // Ensure bucket is initialized
       const minioClient = connectToMinio();
-      const fileName = `Stelaryous/${req.user.username}_${req.file.originalname}`;
-      await minioClient.putObject(minioConfig.bucketName, fileName, req.file.buffer, {
-        'Content-Type': req.file.mimetype
+      const fileName = `Stelaryous/${req.user.username}_${req.file.originalname.split('.')[0]}.webp`;
+
+      // Convert the image to WebP format
+      const webpBuffer = await sharp(req.file.buffer)
+        .webp()
+        .toBuffer();
+
+      await minioClient.putObject(minioConfig.bucketName, fileName, webpBuffer, {
+        'Content-Type': 'image/webp'
       });
 
       proofUrl = fileName; // Deve ser uma string
