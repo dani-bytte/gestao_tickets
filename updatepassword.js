@@ -38,5 +38,5 @@ const updatePassword = async (username, newPassword) => {
 
 // Chamar a função de atualização de senha
 const username = 'admin'; // Substitua pelo nome de usuário desejado
-const newPassword = 'admin123'; // Substitua pela nova senha desejada
+const newPassword = '%gSyAn#C@2^EiK$79a'; // Substitua pela nova senha desejada
 updatePassword(username, newPassword);

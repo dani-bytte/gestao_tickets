@@ -16,7 +16,7 @@ app.set('trust proxy', 1); // Ajuste para confiar apenas no primeiro proxy
 // Middlewares
 app.use(helmet());
 
-const allowedOrigins = ['http://localhost:3000', 'http://179.221.12.203', 'https://apistellar.squareweb.app/'];
+const allowedOrigins = ['http://localhost:3000', 'http://179.221.12.203', 'https://stellar.squareweb.app'];
 
 app.use(cors({
   origin: function (origin, callback) {

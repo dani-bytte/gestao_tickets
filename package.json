@@ -6,7 +6,8 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "create-indexes": "node scripts/createIndexes.js",
-    "test": "node --experimental-vm-modules node_modules/mocha/bin/mocha"
+    "test": "node --experimental-vm-modules node_modules/mocha/bin/mocha",
+    "password": "node updatepassword.js"
   },
   "dependencies": {
     "argon2": "^0.41.1",
