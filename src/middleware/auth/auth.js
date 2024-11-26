@@ -13,10 +13,6 @@ const auth = async (req, res, next) => {
 
   const token = authHeader.replace('Bearer ', '');
 
-  if (!token) {
-    return res.status(401).json({ error: 'Acesso negado. Token não fornecido.' });
-  }
-
   try {
     await connectToMongoDB();
 
@@ -30,8 +26,12 @@ const auth = async (req, res, next) => {
     req.user = user;
     next();
   } catch (error) {
+    if (error.name === 'JsonWebTokenError') {
+      logger.error('Erro na autenticação: Token inválido', error);
+      return res.status(401).json({ error: 'Acesso negado. Token inválido.' });
+    }
     logger.error('Erro na autenticação:', error);
-    res.status(401).json({ error: 'Acesso negado. Token inválido.' });
+    res.status(500).json({ error: 'Erro interno do servidor.' });
   }
 };
 

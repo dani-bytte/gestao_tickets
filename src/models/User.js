@@ -10,6 +10,10 @@ const userSchema = new mongoose.Schema({
   role: { type: String, enum: [ROLES.ADMIN, ROLES.USER, ROLES.FINANCEIRO], default: ROLES.USER }, // Define a role do usuário
   profile: { type: mongoose.Schema.Types.ObjectId, ref: 'ProfileUser' }, // Referência ao ProfileUser
   isTemporaryPassword: { type: Boolean, default: true }, // Novo campo
+  isActive: { 
+    type: Boolean, 
+    default: true 
+  }
 });
 
 // Middleware para hash da senha

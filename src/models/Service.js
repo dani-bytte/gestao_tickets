@@ -1,11 +1,15 @@
 const mongoose = require('mongoose');
 
 const serviceSchema = new mongoose.Schema({
-  name: { type: String, required: true }, // Nome do serviço
-  type: { type: String, required: true },
-  dueDate: { type: Number, required: true }, // Prazo em dias
+  name: { type: String, required: true },
+  dueDate: { type: Number, required: true },
   value: { type: Number, required: true },
-  category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true },
+  isHidden: { type: Boolean, default: false },
+  category: { 
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Category',
+    required: true 
+  }
 });
 
 module.exports = mongoose.model('Service', serviceSchema);

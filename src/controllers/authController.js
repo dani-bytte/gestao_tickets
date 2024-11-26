@@ -102,6 +102,11 @@ const loginUser = async (req, res) => {
       return res.status(400).json({ error: 'Credenciais inválidas' });
     }
 
+    if (!user.isActive) {
+      logger.warn(`Tentativa de login de usuário desativado: ${username}`);
+      return res.status(403).json({ error: 'Usuário desativado' });
+    }
+
     const profile = await ProfileUser.findOne({ user: user._id }).lean();
     const hasProfile = !!profile;
 
@@ -130,34 +135,32 @@ const loginUser = async (req, res) => {
 
 const changePassword = async (req, res) => {
   try {
-    await connectToMongoDB();
-
+    const userId = req.user.id; // Supondo que o ID do usuário esteja no token JWT
     const { oldPassword, newPassword } = req.body;
 
-    // Validar força da nova senha
-    if (newPassword.length < 8) {
-      return res.status(400).json({
-        error: 'A nova senha deve ter pelo menos 8 caracteres',
-      });
+    // Verifique se o usuário tem permissão para mudar a senha
+    const user = await User.findById(userId);
+    if (!user) {
+      console.log('Usuário não encontrado');
+      return res.status(403).json({ message: 'Usuário não encontrado' });
     }
 
-    const user = await User.findById(req.user._id);
-
-    if (!user || !(await user.comparePassword(oldPassword))) {
-      return res.status(400).json({ error: 'Senha antiga inválida' });
+    // Verifique se a senha antiga está correta
+    const isMatch = await user.comparePassword(oldPassword);
+    if (!isMatch) {
+      console.log('Senha antiga incorreta');
+      return res.status(403).json({ message: 'Senha antiga incorreta' });
     }
 
+    // Atualize a senha
     user.password = newPassword;
     user.isTemporaryPassword = false;
-
     await user.save();
 
-    logger.info(`Senha alterada para o usuário: ${user.username}`);
-
     res.status(200).json({ message: 'Senha alterada com sucesso' });
-  } catch (err) {
-    logger.error('Erro ao alterar senha:', err);
-    res.status(500).json({ error: 'Erro no servidor' });
+  } catch (error) {
+    console.error('Erro ao mudar a senha:', error);
+    res.status(500).json({ message: 'Erro interno do servidor' });
   }
 };
 
@@ -182,13 +185,111 @@ const userinfo = async (req, res) => {
   try {
     await connectToMongoDB();
 
-    const users = await User.find().select('id username email role isTemporaryPassword');
+    const users = await User.find({ isActive: true })
+      .select('id username email role isTemporaryPassword isActive')
+      .lean();
     res.json(users);
   } catch (error) {
+    logger.error('Erro ao buscar usuários:', error);
     res.status(500).json({ error: 'Erro ao buscar usuários' });
   }
 };
 
+const registerInfo = async (req, res) => {
+  const { fullName, nickname, birthDay, birthMonth, birthYear, pixKey, whatsapp, email } = req.body;
+
+  try {
+    await connectToMongoDB();
+
+    if (
+      !birthDay ||
+      !birthMonth ||
+      !birthYear ||
+      birthDay < 1 ||
+      birthDay > 31 ||
+      birthMonth < 1 ||
+      birthMonth > 12 ||
+      birthYear < 1900 ||
+      birthYear > new Date().getFullYear()
+    ) {
+      return res.status(400).json({ error: 'Data de nascimento inválida' });
+    }
+
+    const birthDate = new Date(birthYear, birthMonth - 1, birthDay);
+
+    if (isNaN(birthDate.getTime())) {
+      return res.status(400).json({ error: 'Data de nascimento inválida' });
+    }
+
+    const user = await User.findById(req.user._id).populate('profile');
+    if (!user) {
+      logger.warn('Usuário não encontrado');
+      return res.status(404).json({ message: 'Usuário não encontrado' });
+    }
+
+    if (user.profile) {
+      logger.warn('Perfil já criado para este usuário');
+      return res.status(400).json({ message: 'Perfil já criado para este usuário' });
+    }
+
+    const newProfileUser = new ProfileUser({
+      user: req.user._id, // Certifique-se de que o campo user está sendo preenchido
+      fullName,
+      nickname,
+      birthDate,
+      pixKey,
+      whatsapp,
+      email,
+    });
+
+    await newProfileUser.save();
+
+    user.profile = newProfileUser._id;
+    await user.save();
+
+    res.status(201).json({ message: 'Informações registradas com sucesso' });
+  } catch (error) {
+    logger.error('Erro ao registrar informações:', error);
+    res.status(500).json({ error: 'Erro ao registrar informações' });
+  }
+};
+
+const deactivateUser = async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Acesso negado' });
+  }
+
+  try {
+    await connectToMongoDB();
+
+    const { userId } = req.params;
+
+    // Prevent self-deactivation
+    if (userId === req.user._id.toString()) {
+      return res.status(400).json({ error: 'Não é possível desativar seu próprio usuário' });
+    }
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    // Prevent deactivating other admins
+    if (user.role === 'admin') {
+      return res.status(403).json({ error: 'Não é possível desativar outros administradores' });
+    }
+
+    user.isActive = false;
+    await user.save();
+
+    logger.info(`Usuário ${user.username} desativado por ${req.user.username}`);
+    res.json({ message: 'Usuário desativado com sucesso' });
+  } catch (error) {
+    logger.error('Erro ao desativar usuário:', error);
+    res.status(500).json({ error: 'Erro ao desativar usuário' });
+  }
+};
 
 module.exports = {
   registerValidation,
@@ -200,4 +301,6 @@ module.exports = {
   logoutUser,
   validateToken,
   userinfo,
+  registerInfo,
+  deactivateUser,
 };

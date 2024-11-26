@@ -5,8 +5,10 @@ const { connectToMinio, initializeBucket } = require('@config/minioConnection');
 const logger = require('@config/logger');
 const Ticket = require('@models/Ticket');
 const Service = require('@models/Service');
+const Category = require('@models/Category'); 
 const { minioConfig } = require('@config/minioClient');
 const connectToMongoDB = require('@config/mongoConnection');
+const { body, validationResult } = require('express-validator');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -132,18 +134,15 @@ const listTickets = async (req, res) => {
   try {
     await connectToMongoDB();
 
-    let tickets;
-    if (req.user.role === 'admin' || req.user.role === 'financeiro') {
-      tickets = await Ticket.find()
-        .populate('createdBy', 'username')
-        .populate('service', 'name')
-        .lean();
-    } else {
-      tickets = await Ticket.find({ createdBy: req.user._id })
-        .populate('createdBy', 'username')
-        .populate('service', 'name')
-        .lean();
+    let query = { isHidden: false };
+    if (req.user.role !== 'admin' && req.user.role !== 'financeiro') {
+      query.createdBy = req.user._id;
     }
+
+    const tickets = await Ticket.find(query)
+      .populate('createdBy', 'username')
+      .populate('service', 'name')
+      .lean();
 
     res.json(tickets);
   } catch (err) {
@@ -287,11 +286,148 @@ const handleCreateTicket = async () => {
 
 const listServices = async (req, res) => {
   try {
-    const services = await Service.find().lean();
+    const services = await Service.find({ isHidden: false })
+      .populate('category', 'name')
+      .select('-type -__v')
+      .lean();
     res.json(services);
   } catch (error) {
     logger.error('Erro ao listar serviços:', error);
     res.status(500).json({ error: 'Erro ao listar serviços' });
+  }
+};
+
+// Validation middleware
+const validateService = [
+  body('name').notEmpty().trim().withMessage('Nome é obrigatório'),
+  body('dueDate').isInt({ min: 1 }).withMessage('Prazo deve ser um número positivo'),
+  body('value').isFloat({ min: 0 }).withMessage('Valor deve ser um número positivo'),
+  body('category').notEmpty().withMessage('Categoria é obrigatória'),
+];
+
+const validateCategory = [
+  body('name').notEmpty().trim().withMessage('Nome é obrigatório'),
+];
+
+// Create new service
+const createService = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { name, dueDate, value, category } = req.body;
+
+    // Verify if category exists
+    const categoryExists = await Category.findById(category);
+    if (!categoryExists) {
+      return res.status(400).json({ error: 'Categoria não encontrada' });
+    }
+
+    const service = new Service({
+      name,
+      dueDate,
+      value,
+      category,
+    });
+
+    await service.save();
+    res.status(201).json(service);
+  } catch (error) {
+    logger.error('Erro ao criar serviço:', error);
+    res.status(500).json({ error: 'Erro ao criar serviço' });
+  }
+};
+
+// Create new category
+const createCategory = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { name } = req.body;
+
+    // Check if category already exists
+    const categoryExists = await Category.findOne({ name: name.toUpperCase() });
+    if (categoryExists) {
+      return res.status(400).json({ error: 'Categoria já existe' });
+    }
+
+    const category = new Category({
+      name: name.toUpperCase(),
+    });
+
+    await category.save();
+    res.status(201).json(category);
+  } catch (error) {
+    logger.error('Erro ao criar categoria:', error);
+    res.status(500).json({ error: 'Erro ao criar categoria' });
+  }
+};
+
+// List all categories
+const listCategories = async (req, res) => {
+  try {
+    const categories = await Category.find().select('-__v').lean();
+    res.json(categories);
+  } catch (error) {
+    logger.error('Erro ao listar categorias:', error);
+    res.status(500).json({ error: 'Erro ao listar categorias' });
+  }
+};
+
+const hideTicket = async (req, res) => {
+  try {
+    await connectToMongoDB();
+
+    const ticket = await Ticket.findById(req.params.id);
+    
+    if (!ticket) {
+      return res.status(404).json({ error: 'Ticket não encontrado' });
+    }
+
+    // Only admin or ticket creator can hide
+    if (req.user.role !== 'admin' && ticket.createdBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: 'Não autorizado' });
+    }
+
+    ticket.isHidden = true;
+    await ticket.save();
+
+    logger.info(`Ticket ${ticket._id} ocultado por ${req.user.username}`);
+    res.json({ message: 'Ticket ocultado com sucesso' });
+  } catch (error) {
+    logger.error('Erro ao ocultar ticket:', error);
+    res.status(500).json({ error: 'Erro ao ocultar ticket' });
+  }
+};
+
+const hideService = async (req, res) => {
+  try {
+    await connectToMongoDB();
+
+    // Only admin can hide services
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Não autorizado' });
+    }
+
+    const service = await Service.findById(req.params.id);
+    
+    if (!service) {
+      return res.status(404).json({ error: 'Serviço não encontrado' });
+    }
+
+    service.isHidden = true;
+    await service.save();
+
+    logger.info(`Serviço ${service._id} ocultado por ${req.user.username}`);
+    res.json({ message: 'Serviço ocultado com sucesso' });
+  } catch (error) {
+    logger.error('Erro ao ocultar serviço:', error);
+    res.status(500).json({ error: 'Erro ao ocultar serviço' });
   }
 };
 
@@ -304,5 +440,12 @@ module.exports = {
   getProofImage,
   handleViewProof,
   handleCreateTicket,
-  listServices
+  listServices,
+  validateService,
+  validateCategory,
+  createService,
+  createCategory,
+  listCategories,
+  hideTicket,
+  hideService
 };

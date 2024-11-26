@@ -161,9 +161,6 @@ const getUpcomingTickets = async (req, res) => {
 };
 
 const registerInfo = async (req, res) => {
-  if (req.user.role !== ROLES.ADMIN) {
-    return res.status(403).json({ error: 'Acesso negado' });
-  }
 
   const { fullName, nickname, birthDay, birthMonth, birthYear, pixKey, whatsapp, email } = req.body;
 
@@ -202,6 +199,7 @@ const registerInfo = async (req, res) => {
     }
 
     const newProfileUser = new ProfileUser({
+      user: req.user._id,
       fullName,
       nickname,
       birthDate,

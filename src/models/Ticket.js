@@ -46,7 +46,12 @@ const ticketSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
+  },
+  isHidden: { 
+    type: Boolean, 
+    default: false 
   }
+
 }, {
   timestamps: true
 });
