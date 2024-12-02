@@ -12,4 +12,8 @@ router.get('/admin/upcoming-tickets', auth, isAdmin, homeController.getUpcomingT
 router.post('/admin/register-info', auth, homeController.registerInfo);
 router.get('/profile', auth, homeController.getProfile);
 
+
+// User dashboard
+router.get('/user-dashboard', isUser, homeController.getUserDashboardData);
+
 module.exports = router;

@@ -18,6 +18,11 @@ const {
   hideTicket,
   hideService
 } = require('@controllers/ticketController');
+const { 
+  requestTransfer, 
+  approveTransfer, 
+  listTransferRequests 
+} = require('@controllers/transferController');
 const { isUser, isAdmin } = require('@controllers/roleController');
 
 router.use(auth);
@@ -35,5 +40,10 @@ router.post('/services/new', auth, isAdmin, validateService, createService);
 router.put('/services/:id/hide', auth, isAdmin, hideService);
 router.get('/categories/list', auth, listCategories);
 router.post('/categories/new', auth, isAdmin, validateCategory, createCategory);
+
+// Add routes for ticket transfers
+router.post('/transfer/request', auth, isUser, requestTransfer);
+router.put('/transfer/:transferId', auth, isAdmin, approveTransfer);
+router.get('/transfers', auth, listTransferRequests);
 
 module.exports = router;

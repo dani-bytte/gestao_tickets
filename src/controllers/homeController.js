@@ -252,6 +252,92 @@ const getProfile = async (req, res) => {
   }
 };
 
+
+const getUserDashboardData = async (req, res) => {
+  try {
+    await connectToMongoDB();
+
+    const userId = req.user._id;
+
+    // Get user's tickets counts
+    const totalTickets = await Ticket.countDocuments({ createdBy: userId });
+    const pendingTickets = await Ticket.countDocuments({ 
+      createdBy: userId,
+      status: 'andamento' 
+    });
+    const completedTickets = await Ticket.countDocuments({ 
+      createdBy: userId,
+      status: 'finalizado', 
+      payment: 'pendente' 
+    });
+
+    // Calculate due tickets
+    const today = new Date();
+    const dPlus2 = new Date(today);
+    const dueTickets = await Ticket.countDocuments({
+      createdBy: userId,
+      endDate: { $lte: dPlus2 },
+      status: 'andamento',
+    });
+
+    // Calculate today's and upcoming tickets
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+    const twoDaysLater = new Date();
+    twoDaysLater.setDate(todayEnd.getDate() + 2);
+
+    const todayTickets = await Ticket.countDocuments({
+      createdBy: userId,
+      endDate: { $gte: todayStart, $lte: todayEnd },
+      status: 'andamento',
+    });
+
+    const upcomingTickets = await Ticket.countDocuments({
+      createdBy: userId,
+      endDate: { $gt: todayEnd, $lte: twoDaysLater },
+      status: 'andamento',
+    });
+
+    // Get tickets by month for the user
+    const ticketsByMonth = await Ticket.aggregate([
+      {
+        $match: {
+          createdBy: userId
+        }
+      },
+      {
+        $group: {
+          _id: { $month: '$createdAt' },
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $sort: { _id: 1 },
+      },
+    ]);
+
+    const ticketsByMonthArray = Array(12).fill(0);
+    ticketsByMonth.forEach((ticket) => {
+      ticketsByMonthArray[ticket._id - 1] = ticket.count;
+    });
+
+    res.json({
+      totalTickets,
+      pendingTickets,
+      completedTickets,
+      dueTickets,
+      todayTickets,
+      upcomingTickets,
+      ticketsByMonth: ticketsByMonthArray,
+    });
+  } catch (error) {
+    logger.error('Erro ao obter dados do dashboard do usuário:', error);
+    res.status(500).json({ message: 'Erro ao obter dados do dashboard' });
+  }
+};
+
 module.exports = {
   getDashboardData,
   getOverdueTickets,
@@ -259,4 +345,5 @@ module.exports = {
   getUpcomingTickets,
   registerInfo,
   getProfile,
+  getUserDashboardData,
 };
