@@ -16,7 +16,11 @@ const {
   validateService,
   validateCategory,
   hideTicket,
-  hideService
+  hideService,
+  listDiscounts,
+  createDiscount,
+  updateDiscount,
+  hideDiscount
 } = require('@controllers/ticketController');
 const { 
   requestTransfer, 
@@ -45,5 +49,11 @@ router.post('/categories/new', auth, isAdmin, validateCategory, createCategory);
 router.post('/transfer/request', auth, isUser, requestTransfer);
 router.put('/transfer/:transferId', auth, isAdmin, approveTransfer);
 router.get('/transfers', auth, listTransferRequests);
+
+// Add routes for ticket discontes
+router.get('/discounts/list', auth, listDiscounts);
+router.post('/discounts/new', auth, isAdmin, createDiscount);
+router.put('/discounts/:id', auth, isAdmin, updateDiscount);
+router.put('/discounts/:id/delet', auth, isAdmin, hideDiscount);
 
 module.exports = router;

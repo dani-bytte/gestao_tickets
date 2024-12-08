@@ -30,8 +30,8 @@ const ticketSchema = new mongoose.Schema({
   },
   status: { 
     type: String, 
-    enum: ['andamento', 'finalizado'],  // Changed from 'pendente'
-    default: 'andamento'                // Changed default value
+    enum: ['andamento', 'finalizado'],  
+    default: 'andamento'                
   },
   payment: { 
     type: String, 
@@ -50,8 +50,12 @@ const ticketSchema = new mongoose.Schema({
   isHidden: { 
     type: Boolean, 
     default: false 
+  },
+  discount: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Discount',
+    required: false // Campo opcional
   }
-
 }, {
   timestamps: true
 });

@@ -5,6 +5,9 @@ const Ticket = require('@models/Ticket');
 const logger = require('@config/logger');
 const { ROLES } = require('@config/constants');
 const connectToMongoDB = require('@config/mongoConnection');
+const mongoose = require('mongoose');
+const Service = require('@models/Service');
+const Discount = require('@models/Discount');
 
 const getDashboardData = async (req, res) => {
   if (req.user.role !== 'admin') {
@@ -157,6 +160,81 @@ const getUpcomingTickets = async (req, res) => {
   } catch (error) {
     logger.error('Erro ao buscar próximos tickets:', error);
     res.status(500).json({ error: 'Erro ao buscar próximos tickets' });
+  }
+};
+
+const getUserOverdueTickets = async (req, res) => {
+  try {
+    await connectToMongoDB();
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
+    const overdueTickets = await Ticket.find({
+      createdBy: req.user._id,
+      endDate: { $lt: today },
+      status: { $ne: 'finalizado' },
+    })
+      .populate('createdBy', 'username')
+      .select('ticket endDate createdBy status')
+      .lean();
+
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(overdueTickets);
+  } catch (error) {
+    logger.error('Erro ao buscar seus tickets vencidos:', error);
+    res.status(500).json({ error: 'Erro ao buscar seus tickets vencidos' });
+  }
+};
+
+const getUserTodayTickets = async (req, res) => {
+  try {
+    await connectToMongoDB();
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const tickets = await Ticket.find({
+      createdBy: req.user._id,
+      endDate: { $gte: todayStart, $lte: todayEnd },
+      status: 'andamento',
+    })
+      .populate('createdBy', 'username')
+      .select('ticket endDate createdBy status')
+      .lean();
+
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(tickets);
+  } catch (error) {
+    logger.error('Erro ao buscar seus tickets de hoje:', error);
+    res.status(500).json({ error: 'Erro ao buscar seus tickets de hoje' });
+  }
+};
+
+const getUserUpcomingTickets = async (req, res) => {
+  try {
+    await connectToMongoDB();
+
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+    const twoDaysLater = new Date();
+    twoDaysLater.setDate(todayEnd.getDate() + 2);
+
+    const tickets = await Ticket.find({
+      createdBy: req.user._id,
+      endDate: { $gt: todayEnd, $lte: twoDaysLater },
+      status: 'andamento',
+    })
+      .populate('createdBy', 'username')
+      .select('ticket endDate createdBy status')
+      .lean();
+
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(tickets);
+  } catch (error) {
+    logger.error('Erro ao buscar seus próximos tickets:', error);
+    res.status(500).json({ error: 'Erro ao buscar seus próximos tickets' });
   }
 };
 
@@ -338,6 +416,85 @@ const getUserDashboardData = async (req, res) => {
   }
 };
 
+const getUsersTicketsCount = async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Acesso negado' });
+  }
+
+  try {
+    await connectToMongoDB();
+
+    const usersWithTickets = await Ticket.aggregate([
+      {
+        $group: {
+          _id: '$createdBy',
+          ticketCount: { $sum: 1 }
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'userInfo'
+        }
+      },
+      {
+        $project: {
+          username: {
+            $cond: {
+              if: { $gt: [{ $size: '$userInfo' }, 0] },
+              then: { $arrayElemAt: ['$userInfo.username', 0] },
+              else: 'none'
+            }
+          },
+          ticketCount: 1,
+          _id: 0
+        }
+      }
+    ]);
+
+    res.json(usersWithTickets);
+  } catch (error) {
+    logger.error('Erro ao obter contagem de tickets por usuário:', error);
+    res.status(500).json({ error: 'Erro ao obter contagem de tickets por usuário' });
+  }
+};
+
+const getPendingFinalizedTickets = async (req, res) => {
+  try {
+    await connectToMongoDB();
+
+    const tickets = await Ticket.find({
+      status: 'finalizado',
+      payment: 'pendente'
+    })
+      .populate('createdBy', 'username')
+      .populate('service', 'value')
+      .populate('discount', 'desconto')
+      .lean();
+
+    const result = tickets.map(ticket => {
+      const serviceValue = ticket.service.value;
+      const discountValue = ticket.discount ? (serviceValue * ticket.discount.desconto) / 100 : 0;
+      const finalValue = serviceValue - discountValue;
+
+      return {
+        ticketNumber: ticket.ticket,
+        userName: ticket.createdBy ? ticket.createdBy.username : 'Usuário não encontrado',
+        finalValue: finalValue,
+        discountApplied: ticket.discount ? `${ticket.discount.desconto}%` : '0%',
+        repasse: ticket.repasse ? `${ticket.repasse}%` : 'N/A'
+      };
+    });
+
+    res.json(result);
+  } catch (error) {
+    logger.error('Erro ao buscar tickets finalizados e pendentes:', error);
+    res.status(500).json({ error: 'Erro ao buscar tickets finalizados e pendentes' });
+  }
+};
+
 module.exports = {
   getDashboardData,
   getOverdueTickets,
@@ -346,4 +503,9 @@ module.exports = {
   registerInfo,
   getProfile,
   getUserDashboardData,
+  getUserOverdueTickets,
+  getUserTodayTickets,
+  getUserUpcomingTickets,
+  getUsersTicketsCount,
+  getPendingFinalizedTickets // Adiciona a nova rota ao módulo de exportação
 };

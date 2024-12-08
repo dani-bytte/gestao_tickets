@@ -9,6 +9,7 @@ const Category = require('@models/Category');
 const { minioConfig } = require('@config/minioClient');
 const connectToMongoDB = require('@config/mongoConnection');
 const { body, validationResult } = require('express-validator');
+const Discount = require('@models/Discount');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -16,7 +17,7 @@ const createTicket = async (req, res) => {
   try {
     await connectToMongoDB();
 
-    const { ticket, serviceId, client, email, startDate } = req.body;
+    const { ticket, serviceId, client, email, startDate, discountId } = req.body;
     let proofUrl = null;
 
     if (!ticket || !serviceId || !client || !email || !startDate) {
@@ -32,7 +33,21 @@ const createTicket = async (req, res) => {
     if (req.file) {
       await initializeBucket(); // Ensure bucket is initialized
       const minioClient = connectToMinio();
-      const fileName = `Stelaryous/${req.user.username}_${req.file.originalname.split('.')[0]}.webp`;
+      const fileName = `Stelaryous/${req.user.username}/${ticket}.webp`;
+      // Get directory path from the full file path
+      const dirPath = `Stelaryous/${req.user.username}`;
+
+      // Create directory if it doesn't exist
+      const exists = await minioClient.bucketExists(minioConfig.bucketName);
+      if (!exists) {
+        await minioClient.makeBucket(minioConfig.bucketName);
+      }
+
+      try {
+        await minioClient.putObject(minioConfig.bucketName, dirPath + '/', '');
+      } catch (err) {
+        // Directory already exists, continue
+      }
 
       // Convert the image to WebP format
       const webpBuffer = await sharp(req.file.buffer)
@@ -71,7 +86,8 @@ const createTicket = async (req, res) => {
       proofUrl,
       status: 'andamento',
       payment: 'pendente',
-      createdBy: req.user._id
+      createdBy: req.user._id,
+      discount: discountId || null // Adiciona o campo discount opcionalmente
     });
 
     await newTicket.save();
@@ -142,6 +158,7 @@ const listTickets = async (req, res) => {
     const tickets = await Ticket.find(query)
       .populate('createdBy', 'username')
       .populate('service', 'name')
+      .populate('discount', 'desconto cargo') // Popula o campo discount
       .lean();
 
     res.json(tickets);
@@ -158,6 +175,7 @@ const getTicketById = async (req, res) => {
     const ticket = await Ticket.findById(req.params.id)
       .populate('service', 'name')
       .populate('createdBy', 'username')
+      .populate('discount', 'desconto cargo') // Popula o campo discount
       .lean();
 
     if (!ticket) {
@@ -175,7 +193,7 @@ const updateTicket = async (req, res) => {
   try {
     await connectToMongoDB();
 
-    const { status, payment } = req.body;
+    const { status, payment, discountId } = req.body;
     const ticket = await Ticket.findById(req.params.id);
 
     if (!ticket) {
@@ -196,6 +214,11 @@ const updateTicket = async (req, res) => {
       ['completo', 'pendente'].includes(payment)
     ) {
       ticket.payment = payment;
+    }
+
+    // Atualizar o campo discount opcionalmente
+    if (discountId) {
+      ticket.discount = discountId;
     }
 
     await ticket.save();
@@ -431,6 +454,95 @@ const hideService = async (req, res) => {
   }
 };
 
+const listDiscounts = async (req, res) => {
+  try {
+    await connectToMongoDB();
+    const discounts = await Discount.find().lean();
+    res.json(discounts);
+  } catch (error) {
+    logger.error('Erro ao listar descontos:', error);
+    res.status(500).json({ error: 'Erro ao listar descontos' });
+  }
+};
+
+const createDiscount = async (req, res) => {
+  try {
+    await connectToMongoDB();
+
+    const { desconto, cargo } = req.body;
+
+    if (!desconto || !cargo) {
+      return res.status(400).json({ error: 'Todos os campos são obrigatórios' });
+    }
+
+    const newDiscount = new Discount({
+      desconto,
+      cargo,
+      visivel: true
+    });
+
+    await newDiscount.save();
+    logger.info(`Desconto criado para cargo ${cargo}`);
+    res.status(201).json(newDiscount);
+  } catch (error) {
+    logger.error('Erro ao criar desconto:', error);
+    res.status(500).json({ error: 'Erro ao criar desconto' });
+  }
+};
+
+const hideDiscount = async (req, res) => {
+  try {
+    await connectToMongoDB();
+
+    const discount = await Discount.findById(req.params.id);
+    
+    if (!discount) {
+      return res.status(404).json({ error: 'Desconto não encontrado' });
+    }
+
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Não autorizado' });
+    }
+
+    discount.visivel = !discount.visivel;
+    await discount.save();
+
+    logger.info(`Visibilidade do desconto ${discount._id} alterada por ${req.user.username}`);
+    res.json({ message: 'Visibilidade do desconto alterada com sucesso' });
+  } catch (error) {
+    logger.error('Erro ao alterar visibilidade do desconto:', error);
+    res.status(500).json({ error: 'Erro ao alterar visibilidade do desconto' });
+  }
+};
+
+const updateDiscount = async (req, res) => {
+  try {
+    await connectToMongoDB();
+
+    const { desconto, cargo } = req.body;
+    const discount = await Discount.findById(req.params.id);
+
+    if (!discount) {
+      return res.status(404).json({ error: 'Desconto não encontrado' });
+    }
+
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Não autorizado' });
+    }
+
+    if (desconto) discount.desconto = desconto;
+    if (cargo) discount.cargo = cargo;
+
+    await discount.save();
+    logger.info(`Desconto ${discount._id} atualizado por ${req.user.username}`);
+    res.json({ message: 'Desconto atualizado com sucesso' });
+
+  } catch (error) {
+    logger.error('Erro ao atualizar desconto:', error);
+    res.status(500).json({ error: 'Erro ao atualizar desconto' });
+  }
+};
+
 module.exports = {
   upload,
   createTicket,
@@ -447,5 +559,9 @@ module.exports = {
   createCategory,
   listCategories,
   hideTicket,
-  hideService
+  hideService,
+  listDiscounts,
+  createDiscount,
+  hideDiscount,
+  updateDiscount
 };
