@@ -3,11 +3,10 @@ const User = require('@models/User');
 const ProfileUser = require('@models/ProfileUser');
 const Ticket = require('@models/Ticket');
 const logger = require('@config/logger');
-const { ROLES } = require('@config/constants');
 const connectToMongoDB = require('@config/mongoConnection');
-const mongoose = require('mongoose');
-const Service = require('@models/Service');
+const { STATUS, PAYMENT_STATUS } = require('@config/constants');
 const Discount = require('@models/Discount');
+const Payment = require('@models/Payment');
 
 const getDashboardData = async (req, res) => {
   if (req.user.role !== 'admin') {
@@ -466,8 +465,8 @@ const getPendingFinalizedTickets = async (req, res) => {
     await connectToMongoDB();
 
     const tickets = await Ticket.find({
-      status: 'finalizado',
-      payment: 'pendente'
+      status: STATUS.FINALIZADO,
+      payment: PAYMENT_STATUS.PENDENTE
     })
       .populate('createdBy', 'username')
       .populate('service', 'value')
@@ -484,7 +483,8 @@ const getPendingFinalizedTickets = async (req, res) => {
         userName: ticket.createdBy ? ticket.createdBy.username : 'Usuário não encontrado',
         finalValue: finalValue,
         discountApplied: ticket.discount ? `${ticket.discount.desconto}%` : '0%',
-        repasse: ticket.repasse ? `${ticket.repasse}%` : 'N/A'
+        repasse: ticket.repasse ? `${ticket.repasse}%` : 'N/A',
+        proofUrl: ticket.proofUrl || null
       };
     });
 
@@ -492,6 +492,66 @@ const getPendingFinalizedTickets = async (req, res) => {
   } catch (error) {
     logger.error('Erro ao buscar tickets finalizados e pendentes:', error);
     res.status(500).json({ error: 'Erro ao buscar tickets finalizados e pendentes' });
+  }
+};
+
+const confirmPayment = async (req, res) => {
+  try {
+    await connectToMongoDB();
+
+    const { ticketId, finalValue, newDiscountId } = req.body;
+
+    // Find ticket by ticket number instead of _id
+    const ticket = await Ticket.findOne({ ticket: ticketId })
+      .populate('service', 'value')
+      .populate('discount', 'desconto');
+
+    if (!ticket) {
+      logger.warn(`Ticket não encontrado: ${ticketId}`);
+      return res.status(404).json({ error: 'Ticket não encontrado' });
+    }
+
+    // Calculate original value
+    const originalValue = ticket.service.value;
+    let discountApplied = 0;
+
+    // Update discount if provided
+    if (newDiscountId) {
+      try {
+        const newDiscount = await Discount.findById(newDiscountId);
+        if (newDiscount) {
+          ticket.discount = newDiscountId;
+          discountApplied = newDiscount.desconto;
+        }
+      } catch (discountError) {
+        logger.error('Erro ao aplicar desconto:', discountError);
+      }
+    }
+
+    // Create payment record
+    const payment = new Payment({
+      ticket: ticket._id,
+      ticketNumber: ticket.ticket,
+      originalValue,
+      finalValue,
+      discountApplied,
+      confirmedBy: req.user._id
+    });
+
+    await payment.save();
+
+    // Update ticket status
+    ticket.payment = 'completo';
+    await ticket.save();
+
+    res.json({
+      message: 'Pagamento confirmado com sucesso',
+      payment: payment
+    });
+
+  } catch (error) {
+    logger.error('Erro ao confirmar pagamento:', error);
+    res.status(500).json({ error: 'Erro ao confirmar pagamento' });
   }
 };
 
@@ -507,5 +567,6 @@ module.exports = {
   getUserTodayTickets,
   getUserUpcomingTickets,
   getUsersTicketsCount,
-  getPendingFinalizedTickets // Adiciona a nova rota ao módulo de exportação
+  getPendingFinalizedTickets,
+  confirmPayment
 };

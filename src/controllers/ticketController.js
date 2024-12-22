@@ -24,6 +24,12 @@ const createTicket = async (req, res) => {
       return res.status(400).json({ error: 'Todos os campos são obrigatórios' });
     }
 
+    // Handle default/no discount case
+    let finalDiscountId = null;
+    if (discountId && discountId !== 'default') {
+      finalDiscountId = discountId;
+    }
+
     const existingTicket = await Ticket.findOne({ ticket });
     if (existingTicket) {
       logger.warn(`Tentativa de criar ticket duplicado: ${ticket} por usuário ${req.user.username}`);
@@ -87,7 +93,7 @@ const createTicket = async (req, res) => {
       status: 'andamento',
       payment: 'pendente',
       createdBy: req.user._id,
-      discount: discountId || null // Adiciona o campo discount opcionalmente
+      discount: finalDiscountId // Will be null if discountId is 'default' or not provided
     });
 
     await newTicket.save();
