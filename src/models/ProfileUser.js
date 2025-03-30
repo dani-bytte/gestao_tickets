@@ -36,10 +36,6 @@ const profileUserSchema = new mongoose.Schema({
   timestamps: true // Add created/updated timestamps
 });
 
-// Add indexes for common queries
-profileUserSchema.index({ user: 1 });
-profileUserSchema.index({ email: 1 });
-
 const ProfileUser = mongoose.model('ProfileUser', profileUserSchema);
 
 module.exports = ProfileUser;

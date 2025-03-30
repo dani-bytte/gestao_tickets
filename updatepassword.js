@@ -1,10 +1,10 @@
 require('module-alias/register');
-require('dotenv').config();
+const env = require('@config/env');
 
 const argon2 = require('argon2');
 const mongoose = require('mongoose');
-const User = require('@models/User'); // Ajuste o caminho conforme necessário
-const connectToMongoDB = require('@config/mongoConnection'); // Importar a conexão existente
+const User = require('@models/User'); 
+const connectToMongoDB = require('@config/mongoConnection');
 
 // Função para atualizar a senha
 const updatePassword = async (username, newPassword) => {
@@ -37,6 +37,12 @@ const updatePassword = async (username, newPassword) => {
 };
 
 // Chamar a função de atualização de senha
-const username = 'admin'; // Substitua pelo nome de usuário desejado
-const newPassword = '%gSyAn#C@2^EiK$79a'; // Substitua pela nova senha desejada
+const username = process.argv[2] || 'admin'; // Obtém o username da linha de comando ou usa 'admin'
+const newPassword = process.argv[3]; // Obtém a nova senha da linha de comando
+
+if (!newPassword) {
+  console.error('Uso: node updatepassword.js <username> <nova_senha>');
+  process.exit(1);
+}
+
 updatePassword(username, newPassword);

@@ -8,10 +8,14 @@ const requestLogger = require('@middleware/logging/requestLogger');
 const errorLogger = require('@middleware/logging/errorLogger');
 const routes = require('@routes');
 const cors = require('cors');
-require('dotenv').config();
+const env = require('@config/env');
+const connectDB = require('@config/database');
 
 const app = express();
 app.set('trust proxy', 1); // Ajuste para confiar apenas no primeiro proxy
+
+// Conexão com o banco de dados
+connectDB();
 
 // Middlewares
 app.use(helmet());
@@ -72,7 +76,7 @@ app.use((err, req, res, next) => {
   logger.error(err.stack);
   res.status(500).json({
     error: 'Erro interno do servidor',
-    message: process.env.NODE_ENV === 'development' ? err.message : null
+    message: env.NODE_ENV === 'development' ? err.message : null
   });
 });
 
@@ -85,7 +89,7 @@ process.on('uncaughtException', (error) => {
   console.error('Uncaught Exception:', error);
 });
 
-const PORT = process.env.PORT || 3001; // Alterar para uma porta diferente, como 3001
+const PORT = env.PORT || 3001; // Alterar para uma porta diferente, como 3001
 app.listen(PORT, () => {
   logger.info(`Servidor rodando na porta http://localhost:${PORT}`);
 });

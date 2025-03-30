@@ -1,5 +1,6 @@
 // middleware/errorHandler.js
 const logger = require('../config/logger');
+const env = require('@config/env');
 
 const errorHandler = (err, req, res, next) => {
   // Log error with context
@@ -33,7 +34,7 @@ const errorHandler = (err, req, res, next) => {
   // Generic error
   res.status(err.status || 500).json({
     error: {
-      message: process.env.NODE_ENV === 'production' 
+      message: env.NODE_ENV === 'production' 
         ? 'Erro interno do servidor' 
         : err.message,
       status: err.status || 500

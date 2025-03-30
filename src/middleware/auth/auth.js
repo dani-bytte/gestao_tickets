@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const User = require('@models/User');
 const logger = require('@config/logger');
 const connectToMongoDB = require('@config/mongoConnection');
+const env = require('@config/env');
 
 const auth = async (req, res, next) => {
   const authHeader = req.header('Authorization');
@@ -16,7 +17,7 @@ const auth = async (req, res, next) => {
   try {
     await connectToMongoDB();
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, env.JWT_SECRET);
     const user = await User.findById(decoded.userId);
 
     if (!user) {

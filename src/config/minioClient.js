@@ -1,32 +1,14 @@
 // config/minioClient.js
 const Minio = require('minio');
-const logger = require('./logger');
-require('dotenv').config();
+const env = require('./env');
 
-const minioConfig = {
-  endPoint: 'minios3.muonityzone.top',
-  port: 443, // Use standard HTTPS port
-  useSSL: true, // Enable SSL
-  accessKey: process.env.MINIO_APP_ACCESS_KEY,
-  secretKey: process.env.MINIO_APP_SECRET_KEY,
-  bucketName: 'comprovantes'
-};
-
+// Configuração do cliente MinIO
 const minioClient = new Minio.Client({
-  endPoint: minioConfig.endPoint,
-  port: minioConfig.port,
-  useSSL: minioConfig.useSSL,
-  accessKey: minioConfig.accessKey,
-  secretKey: minioConfig.secretKey
+  endPoint: env.MINIO.HOST,
+  port: env.MINIO.PORT,
+  useSSL: env.MINIO.USE_SSL,
+  accessKey: env.MINIO.ACCESS_KEY,
+  secretKey: env.MINIO.SECRET_KEY
 });
 
-function getSignedUrl(fileName) {
-  return new Promise((resolve, reject) => {
-    minioClient.presignedGetObject(minioConfig.bucketName, fileName, 24*60*60, (err, presignedUrl) => {
-      if (err) return reject(err);
-      resolve(presignedUrl);
-    });
-  });
-}
-
-module.exports = { minioConfig };
+module.exports = minioClient;

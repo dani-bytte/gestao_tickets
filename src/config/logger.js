@@ -1,9 +1,18 @@
 // config/logger.js
 const winston = require('winston');
 const path = require('path');
+const fs = require('fs');
+
+// Carregamos o módulo env primeiro antes de usar as variáveis
+const { NODE_ENV } = require('./env');
 
 // Diretório de logs
 const logsDir = path.join(__dirname, '..', '..', 'logs');
+
+// Garantir que o diretório de logs existe
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir, { recursive: true });
+}
 
 // Formato customizado para logs de desenvolvimento
 const devFormat = winston.format.combine(
@@ -22,8 +31,8 @@ const prodFormat = winston.format.combine(
 );
 
 const logger = winston.createLogger({
-  level: process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production' ? 'info' : 'debug'),
-  format: process.env.NODE_ENV === 'production' ? prodFormat : devFormat,
+  level: NODE_ENV === 'production' ? 'info' : 'debug',
+  format: NODE_ENV === 'production' ? prodFormat : devFormat,
   transports: [
     // Logs de erro
     new winston.transports.File({ 
@@ -58,7 +67,7 @@ const logger = winston.createLogger({
 });
 
 // Configuração específica para desenvolvimento
-if (process.env.NODE_ENV !== 'production') {
+if (NODE_ENV !== 'production') {
   logger.add(new winston.transports.Console({
     format: devFormat,
     handleExceptions: true,

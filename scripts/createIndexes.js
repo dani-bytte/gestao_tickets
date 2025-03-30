@@ -1,8 +1,10 @@
 const mongoose = require('mongoose');
-require('dotenv').config();
+const path = require('path');
+require('module-alias/register');
+const env = require('../src/config/env');
 
 async function createIndexes() {
-  await mongoose.connect(process.env.MONGO_URI);
+  await mongoose.connect(env.MONGO_URI);
   
   await mongoose.connection.collection('tickets').createIndex({ "service": 1 });
   await mongoose.connection.collection('tickets').createIndex({ "startDate": 1 });

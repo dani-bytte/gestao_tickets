@@ -6,7 +6,7 @@ const { ROLES } = require('@config/constants'); // Importar ROLES
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
+  email: { type: String, required: true},
   role: { type: String, enum: [ROLES.ADMIN, ROLES.USER, ROLES.FINANCEIRO], default: ROLES.USER }, // Define a role do usuário
   profile: { type: mongoose.Schema.Types.ObjectId, ref: 'ProfileUser' }, // Referência ao ProfileUser
   isTemporaryPassword: { type: Boolean, default: true }, // Novo campo

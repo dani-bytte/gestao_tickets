@@ -1,4 +1,6 @@
-/.env
+
+/env/*
+!/env/.env.example
 /addServices.js
 /logs
 /node_modules
@@ -6,3 +8,5 @@
 /servicesData.json
 backend.zip
 src.zip
+env/.env
+.env

@@ -9,7 +9,7 @@ const transporter = require('@config/emailConfig');
 const role = require('@config/constants').ROLES;
 const ProfileUser = require('@models/ProfileUser');
 const connectToMongoDB = require('@config/mongoConnection');
-require('dotenv').config();
+const env = require('@config/env');
 
 const registerValidation = [
   body('username')
@@ -71,7 +71,7 @@ const registerUser = async (req, res) => {
 
     // Enviar a senha provisória ao usuário
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: env.EMAIL.USER,
       to: email,
       subject: 'Sua senha provisória',
       text: `Olá ${username},\n\nSua senha provisória é: ${temporaryPassword}\n\nPor favor, altere sua senha após o primeiro login.\n\nObrigado!`,
@@ -117,7 +117,7 @@ const loginUser = async (req, res) => {
       isTemporaryPassword: user.isTemporaryPassword,
     };
 
-    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign(tokenPayload, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRATION });
 
     logger.info(`Login bem-sucedido: ${username}, hasProfile: ${hasProfile}`);
 
